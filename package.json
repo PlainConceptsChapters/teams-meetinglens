@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "auth:code": "node scripts/auth-code-test.mjs",
-    "auth:transcript": "node scripts/transcript-test.mjs"
+    "auth:transcript": "node scripts/transcript-test.mjs",
+    "llm:smoke": "tsx scripts/llm-smoke.ts"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
@@ -20,6 +21,7 @@
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "prettier": "^3.2.5",
+    "tsx": "^4.19.2",
     "typescript": "^5.4.5",
     "vitest": "^1.5.0"
   }

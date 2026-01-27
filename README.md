@@ -83,6 +83,14 @@ Required delegated Microsoft Graph permissions:
 
 After adding permissions, grant admin consent in your tenant. Then populate `.env` with your tenant/app values.
 
+Azure OpenAI (Foundry) setup:
+- Create an Azure AI Foundry (Azure OpenAI) resource in your subscription.
+- Deploy a chat model (e.g., GPT-4o/4.1) and note the deployment name.
+- Capture the endpoint and API key from the resource.
+- Populate `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT`, and `AZURE_OPENAI_API_VERSION`.
+  - Recommended models: `gpt-4.1-mini` (default), `gpt-4.1-nano` (fast/low-cost).
+  - Cheapest option: `gpt-4.1-nano` on Global Standard deployment.
+
 ## Development (repo skeleton)
 This repository uses npm with ESLint, Prettier, TypeScript, and Vitest. The scripts below are the baseline harness for unit tests and static checks.
 
@@ -99,6 +107,7 @@ Prerequisites:
 - Configure Entra ID app registration with delegated permissions.
 - Ensure redirect URI `http://localhost:3000` is added for the app registration.
 - Populate `.env` with values from your tenant/app.
+ - Add Azure OpenAI settings to `.env` when testing summarization/Q&A.
 
 Commands:
 
@@ -110,6 +119,12 @@ npm run auth:transcript
 Notes:
 - `auth:code` completes an auth-code flow and calls `/me/calendarView`.
 - `auth:transcript` completes an auth-code flow and then fetches transcripts for a given `onlineMeetingId` or `joinUrl`.
+
+Azure OpenAI variables (for summarization/Q&A):
+- `AZURE_OPENAI_ENDPOINT`
+- `AZURE_OPENAI_API_KEY`
+- `AZURE_OPENAI_DEPLOYMENT`
+- `AZURE_OPENAI_API_VERSION`
 
 Testing scope reminder:
 - Unit tests are required for modular components (Graph wrappers, transcript processing, summarization, caching)

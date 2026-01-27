@@ -50,6 +50,16 @@ export class InvalidRequestError extends Error {
   }
 }
 
+export class OutputValidationError extends Error {
+  readonly cause?: unknown;
+
+  constructor(message: string, cause?: unknown) {
+    super(message);
+    this.name = 'OutputValidationError';
+    this.cause = cause;
+  }
+}
+
 export class GraphError extends Error {
   readonly status: number;
   readonly code?: string;

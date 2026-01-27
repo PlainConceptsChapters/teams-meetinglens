@@ -10,11 +10,11 @@ This backlog is the single source of truth for project status. Every Epic, Featu
 | Milestone M1: Repo skeleton + CI | Done |
 | Milestone M2: Auth + Graph calendar | Done |
 | Milestone M3: Meetings & transcripts | Done |
-| Milestone M4: Summarization & Q&A | Proposed |
+| Milestone M4: Summarization & Q&A | Done |
 | Epic E1: Foundation & repo hygiene | Done |
 | Epic E2: Auth & identity (OBO) | Done |
 | Epic E3: Graph meetings & transcripts | Done |
-| Epic E4: LLM summarization & Q&A | Proposed |
+| Epic E4: LLM summarization & Q&A | Done |
 | Epic E5: Observability & security | Planned |
 | Epic E6: Teams channel layer & bot integration | Proposed (Added based on research context) |
 
@@ -53,7 +53,7 @@ This backlog is the single source of truth for project status. Every Epic, Featu
   - Unit tests for transcript retrieval and parsing
 
 ### M4: Summarization & Q&A
-- Status: Proposed
+- Status: Done
 - Acceptance criteria:
   - Summarization pipeline for meetings is available through domain services
   - Q&A over transcripts supported with guardrails
@@ -213,56 +213,67 @@ This backlog is the single source of truth for project status. Every Epic, Featu
 ---
 
 ### Epic E4: LLM summarization & Q&A
-- Status: Proposed
+- Status: Done
 - Acceptance criteria:
   - Summarization and Q&A pipelines defined with guardrails
   - Unit tests for chunking, prompt assembly, and output validation
 
 #### Feature E4.F0: LLM orchestration and tool calling
-- Status: Proposed (Added based on research context)
+- Status: Done (Added based on research context)
 - Acceptance criteria:
   - Intent resolution and tool routing documented
   - Tool execution policy defined (allowed tools, parameters, and limits)
   - Prompt-injection and tool-misuse mitigations documented
 
 ##### Task E4.F0.T1: Define tool calling contract
-- Status: Proposed (Added based on research context)
+- Status: Done (Added based on research context)
 - Acceptance criteria:
   - Tool registry and input/output schemas documented
   - Allowed operations and rate limits documented
+  - Notes:
+    - `LlmClient` interface defines allowed completion operations.
+    - JSON-only output schema enforced via parsers in `llm/schema.ts`.
 
 ##### Task E4.F0.T2: Define prompt-injection mitigations
-- Status: Proposed (Added based on research context)
+- Status: Done (Added based on research context)
 - Acceptance criteria:
   - Guardrails for tool misuse and data exfiltration documented
   - Redaction and safe completion guidance documented
+  - Notes:
+    - Guardrails include sensitive-data redaction and disallowed answer checks.
 
 #### Feature E4.F1: Summarization pipeline
-- Status: Proposed
+- Status: Done
 - Acceptance criteria:
   - Chunking strategy and prompt templates documented
   - Output schema for summary and key points defined
 
 ##### Task E4.F1.T1: Define chunking rules
-- Status: Proposed
+- Status: Done
 - Acceptance criteria:
   - Token limits and overlap rules documented
+  - Notes:
+    - Chunking utility uses max tokens + overlap settings with defaults.
 
 ##### Task E4.F1.T2: Define summary schema
-- Status: Proposed
+- Status: Done
 - Acceptance criteria:
   - Summary output format and validation checks documented
+  - Notes:
+    - Summary schema enforced by `parseSummaryResult` with required fields.
 
 #### Feature E4.F2: Q&A over transcripts
-- Status: Proposed
+- Status: Done
 - Acceptance criteria:
   - Retrieval and answer synthesis approach defined
   - Guardrails for hallucination and PII leakage documented
 
 ##### Task E4.F2.T1: Define question intent routing
-- Status: Proposed
+- Status: Done
 - Acceptance criteria:
   - Q&A routing logic and fallbacks documented
+  - Notes:
+    - Q&A selects relevant cues by keyword overlap and falls back on NotFound.
 
 ---
 

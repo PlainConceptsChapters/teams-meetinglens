@@ -9,5 +9,13 @@ export * from './types/meeting.js';
 export * from './types/transcript.js';
 export * from './transcripts/vttParser.js';
 export * from './transcripts/transcriptService.js';
+export * from './llm/types.js';
+export * from './llm/promptTemplates.js';
+export * from './llm/guardrails.js';
+export * from './llm/chunker.js';
+export * from './llm/schema.js';
+export * from './llm/summarizationService.js';
+export * from './llm/qnaService.js';
+export * from './llm/azureOpenAiClient.js';
 
 export const isReady = (): boolean => true;
