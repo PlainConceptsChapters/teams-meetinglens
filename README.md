@@ -66,6 +66,19 @@ See `BACKLOG.md` for milestones, epics, and status. The backlog is the single so
 - Add unit tests for helpers and services
 - Avoid adding end-to-end Teams UI tests at this stage
 
+## Development (repo skeleton)
+This repository uses npm with ESLint, Prettier, TypeScript, and Vitest. The scripts below are the baseline harness for unit tests and static checks.
+
+```text
+npm run lint
+npm run typecheck
+npm test
+```
+
+Testing scope reminder:
+- Unit tests are required for modular components (Graph wrappers, transcript processing, summarization, caching)
+- End-to-end Teams UI or Bot Framework tests are out of scope initially
+
 ## Security reporting
 Please report security issues privately following the guidance in `AGENTS.md`.
 

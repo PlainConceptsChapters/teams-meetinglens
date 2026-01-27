@@ -7,7 +7,7 @@ This backlog is the single source of truth for project status. Every Epic, Featu
 | Item | Status |
 | --- | --- |
 | Milestone M0: Docs only | Done |
-| Milestone M1: Repo skeleton + CI | Planned |
+| Milestone M1: Repo skeleton + CI | Done |
 | Milestone M2: Auth + Graph calendar | Planned |
 | Milestone M3: Meetings & transcripts | Proposed |
 | Milestone M4: Summarization & Q&A | Proposed |
@@ -32,7 +32,7 @@ This backlog is the single source of truth for project status. Every Epic, Featu
   - Skills documented under `.copilots/skills/`
 
 ### M1: Repo skeleton + CI
-- Status: Planned
+- Status: Done
 - Acceptance criteria:
   - Minimal TypeScript/Node.js repo scaffold in place
   - GitHub Actions pipelines for linting, tests, and security checks described and configured
