@@ -66,6 +66,23 @@ See `BACKLOG.md` for milestones, epics, and status. The backlog is the single so
 - Add unit tests for helpers and services
 - Avoid adding end-to-end Teams UI tests at this stage
 
+## Developer setup (Azure)
+To contribute locally, you need your own Entra ID app registration with delegated Graph permissions.
+
+Create an app registration and configure:
+- Platform: Web
+- Redirect URI: `http://localhost:3000`
+- Client secret for local auth-code testing
+
+Required delegated Microsoft Graph permissions:
+- `Calendars.Read`
+- `Calendars.Read.Shared`
+- `OnlineMeetings.Read`
+- `OnlineMeetingTranscript.Read.All` (admin consent required)
+- `User.Read`
+
+After adding permissions, grant admin consent in your tenant. Then populate `.env` with your tenant/app values.
+
 ## Development (repo skeleton)
 This repository uses npm with ESLint, Prettier, TypeScript, and Vitest. The scripts below are the baseline harness for unit tests and static checks.
 
@@ -74,6 +91,25 @@ npm run lint
 npm run typecheck
 npm test
 ```
+
+## Local auth + Graph smoke tests
+These scripts validate Entra ID auth configuration and Graph access in a local environment.
+
+Prerequisites:
+- Configure Entra ID app registration with delegated permissions.
+- Ensure redirect URI `http://localhost:3000` is added for the app registration.
+- Populate `.env` with values from your tenant/app.
+
+Commands:
+
+```text
+npm run auth:code
+npm run auth:transcript
+```
+
+Notes:
+- `auth:code` completes an auth-code flow and calls `/me/calendarView`.
+- `auth:transcript` completes an auth-code flow and then fetches transcripts for a given `onlineMeetingId` or `joinUrl`.
 
 Testing scope reminder:
 - Unit tests are required for modular components (Graph wrappers, transcript processing, summarization, caching)

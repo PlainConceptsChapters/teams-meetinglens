@@ -79,6 +79,7 @@ This document defines the Codex agents used for this repository and how they col
 - Architectural decisions are recorded as ADR placeholders in `BACKLOG.md` until formal ADR files are introduced.
 - Ownership is tracked by assigning a primary agent to each Epic/Feature in backlog notes.
 - Any status change requires updating the status snapshot table.
+- Never edit `.env`; update `.env.example` only.
 
 ## Related documentation
 - `README.md`
