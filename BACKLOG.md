@@ -8,12 +8,12 @@ This backlog is the single source of truth for project status. Every Epic, Featu
 | --- | --- |
 | Milestone M0: Docs only | Done |
 | Milestone M1: Repo skeleton + CI | Done |
-| Milestone M2: Auth + Graph calendar | Planned |
+| Milestone M2: Auth + Graph calendar | Done |
 | Milestone M3: Meetings & transcripts | Proposed |
 | Milestone M4: Summarization & Q&A | Proposed |
 | Epic E1: Foundation & repo hygiene | Done |
-| Epic E2: Auth & identity (OBO) | Planned |
-| Epic E3: Graph meetings & transcripts | Proposed |
+| Epic E2: Auth & identity (OBO) | Done |
+| Epic E3: Graph meetings & transcripts | In Progress |
 | Epic E4: LLM summarization & Q&A | Proposed |
 | Epic E5: Observability & security | Planned |
 | Epic E6: Teams channel layer & bot integration | Proposed (Added based on research context) |
@@ -39,7 +39,7 @@ This backlog is the single source of truth for project status. Every Epic, Featu
   - Baseline unit test harness documented
 
 ### M2: Auth + Graph calendar
-- Status: Planned
+- Status: Done
 - Acceptance criteria:
   - OBO authentication flow implemented with delegated permissions
   - Calendar search and meeting resolution APIs available via a service layer
@@ -96,77 +96,104 @@ This backlog is the single source of truth for project status. Every Epic, Featu
 ---
 
 ### Epic E2: Auth & identity (OBO)
-- Status: Planned
+- Status: Done
 - Acceptance criteria:
   - OBO flow documented and implemented
   - Delegated permissions set aligned with least privilege
 
 #### Feature E2.F1: Entra ID app registration
-- Status: Planned
+- Status: Done
 - Acceptance criteria:
   - Bot app registration documented with required Graph scopes
   - Consent flows described for tenant admins and users
 
 ##### Task E2.F1.T1: Define required Graph scopes
-- Status: Planned
+- Status: Done
 - Acceptance criteria:
   - Scope list is minimal and mapped to use cases
+  - Notes:
+    - Start with delegated `Calendars.Read` for calendar search and event details.
+    - Add `OnlineMeetings.Read` only if meeting resolution needs meeting metadata.
+    - Include `User.Read` for basic identity context; avoid write scopes.
 
 ##### Task E2.F1.T2: Document OBO token exchange
-- Status: Planned
+- Status: Done
 - Acceptance criteria:
   - Token exchange sequence documented with security considerations
+  - Notes:
+    - Validate inbound Teams/Bot token and tenant before OBO exchange.
+    - Use MSAL OBO flow to request Graph token with minimal scopes.
+    - Avoid logging tokens; only log redacted correlation IDs.
 
 #### Feature E2.F2: Auth service module
-- Status: Planned
+- Status: Done
 - Acceptance criteria:
   - Token caching and refresh strategy specified
   - Unit tests defined for token acquisition paths
 
 ##### Task E2.F2.T1: Define token cache strategy
-- Status: Planned
+- Status: Done
 - Acceptance criteria:
   - Cache TTL and eviction rules documented
+  - Notes:
+    - Cache key: tenantId + userId + scopes; in-memory only by default.
+    - TTL from token exp minus skew; refresh on 401 or near-expiry.
 
 ##### Task E2.F2.T2: Define error handling taxonomy
-- Status: Planned
+- Status: Done
 - Acceptance criteria:
   - Error types and user-facing messages documented
+  - Notes:
+    - AuthError: token exchange/validation failures -> "Please sign in again."
+    - PermissionDenied: missing scopes/consent -> "Admin consent required."
+    - Throttled: 429/Retry-After -> "Too many requests, try later."
+    - NotFound/InvalidRequest: malformed inputs -> "Meeting not found."
 
 ---
 
 ### Epic E3: Graph meetings & transcripts
-- Status: Proposed
+- Status: In Progress
 - Acceptance criteria:
   - Calendar search and meeting resolution APIs available
   - Transcript retrieval paths defined and gated by permissions
 
 #### Feature E3.F1: Calendar search
-- Status: Proposed
+- Status: Done
 - Acceptance criteria:
   - Query patterns and paging behavior defined
   - Unit tests for Graph query builder
 
 ##### Task E3.F1.T1: Define calendar query patterns
-- Status: Proposed
+- Status: Done
 - Acceptance criteria:
   - Query scenarios covered (time range, organizer, subject)
+  - Notes:
+    - Default to `calendarView` queries with a bounded start/end range.
+    - Support optional filters: organizer email, subject keyword, isCancelled.
+    - Enforce max window and page size to avoid over-fetching.
 
 ##### Task E3.F1.T2: Define paging and throttling policy
-- Status: Proposed
+- Status: Done
 - Acceptance criteria:
   - Backoff and retry guidelines documented
+  - Notes:
+    - Follow `@odata.nextLink` for paging; stop at client-defined max pages.
+    - Respect `Retry-After` on 429/503 and apply exponential backoff.
 
 #### Feature E3.F2: Meeting resolution
-- Status: Proposed
+- Status: Done
 - Acceptance criteria:
   - Resolve meeting identifiers across user and calendar contexts
   - Unit tests for resolver logic
 
 ##### Task E3.F2.T1: Define meeting identity model
-- Status: Proposed
+- Status: Done
 - Acceptance criteria:
   - Meeting identity fields and resolution rules documented
+  - Notes:
+    - Required fields: calendarEventId, start/end, organizer, subject.
+    - Optional fields: onlineMeetingId, joinUrl for linkage when present.
+    - Resolution priority: explicit meeting id > joinUrl > time/subject.
 
 #### Feature E3.F3: Transcript retrieval
 - Status: Proposed
