@@ -12,7 +12,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "auth:code": "node scripts/auth-code-test.mjs",
     "auth:transcript": "node scripts/transcript-test.mjs",
-    "llm:smoke": "tsx scripts/llm-smoke.ts"
+    "llm:smoke": "tsx scripts/llm-smoke.ts",
+    "bot:dev": "tsx scripts/bot-host.ts",
+    "teamsapp:pack": "powershell -NoProfile -Command \"Compress-Archive -Path teamsapp\\manifest.json,teamsapp\\color.png,teamsapp\\outline.png -DestinationPath teamsapp\\teamsapp.zip -Force\""
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
@@ -24,5 +26,9 @@
     "tsx": "^4.19.2",
     "typescript": "^5.4.5",
     "vitest": "^1.5.0"
+  },
+  "dependencies": {
+    "botbuilder": "^4.23.1",
+    "express": "^4.19.2"
   }
 }

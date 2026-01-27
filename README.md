@@ -114,11 +114,17 @@ Commands:
 ```text
 npm run auth:code
 npm run auth:transcript
+npm run llm:smoke
+npm run bot:dev
+npm run teamsapp:pack
 ```
 
 Notes:
 - `auth:code` completes an auth-code flow and calls `/me/calendarView`.
 - `auth:transcript` completes an auth-code flow and then fetches transcripts for a given `onlineMeetingId` or `joinUrl`.
+- `llm:smoke` runs a local Azure OpenAI smoke test (summary + Q&A).
+- `bot:dev` starts the local Teams bot host.
+- `teamsapp:pack` creates a Teams app package zip under `teamsapp/`.
 
 Azure OpenAI variables (for summarization/Q&A):
 - `AZURE_OPENAI_ENDPOINT`
@@ -142,6 +148,8 @@ See `LICENSE`.
 - `docs/observability.md`
 - `docs/security.md`
 - `docs/teams-channel.md`
+- `docs/bot-runtime.md`
+- `docs/azure-bot.md`
 - `.copilots/skills/developer.md`
 - `.copilots/skills/quality.md`
 - `.copilots/skills/manager.md`

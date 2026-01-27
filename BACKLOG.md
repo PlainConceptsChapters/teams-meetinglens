@@ -343,6 +343,42 @@ This backlog is the single source of truth for project status. Every Epic, Featu
   - Notes:
     - Error taxonomy and safe responses documented in `docs/teams-channel.md`.
 
+#### Feature E6.F2: Bot runtime hosting
+- Status: Done (Added for implementation)
+- Acceptance criteria:
+  - HTTP endpoint receives Teams activities
+  - Bot Framework adapter wired to channel router
+  - Local dev run instructions documented
+
+##### Task E6.F2.T1: Add bot HTTP host
+- Status: Done (Added for implementation)
+- Acceptance criteria:
+  - Minimal Node/Express host for Bot Framework
+  - Routing integrates `TeamsCommandRouter`
+
+##### Task E6.F2.T2: Add dev tunnel guidance
+- Status: Done (Added for implementation)
+- Acceptance criteria:
+  - Local tunneling documented (ngrok or dev tunnel)
+  - Bot messaging endpoint URL documented
+
+#### Feature E6.F3: Teams app package
+- Status: Done (Added for implementation)
+- Acceptance criteria:
+  - Teams app manifest created with bot configuration
+  - App package instructions documented
+
+##### Task E6.F3.T1: Create Teams manifest
+- Status: Done (Added for implementation)
+- Acceptance criteria:
+  - Manifest includes bot id, scopes, and messaging endpoint
+
+##### Task E6.F3.T2: Document Azure Bot registration
+- Status: Done (Added for implementation)
+- Acceptance criteria:
+  - Azure Bot resource setup documented
+  - Configuration keys and channels documented
+
 ## Risk register
 
 | Risk | Impact | Mitigation | Status |
