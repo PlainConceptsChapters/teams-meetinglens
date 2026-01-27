@@ -17,5 +17,8 @@ export * from './llm/schema.js';
 export * from './llm/summarizationService.js';
 export * from './llm/qnaService.js';
 export * from './llm/azureOpenAiClient.js';
+export * from './teams/types.js';
+export * from './teams/normalize.js';
+export * from './teams/router.js';
 
 export const isReady = (): boolean => true;

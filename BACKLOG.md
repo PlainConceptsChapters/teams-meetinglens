@@ -16,7 +16,7 @@ This backlog is the single source of truth for project status. Every Epic, Featu
 | Epic E3: Graph meetings & transcripts | Done |
 | Epic E4: LLM summarization & Q&A | Done |
 | Epic E5: Observability & security | Done |
-| Epic E6: Teams channel layer & bot integration | Proposed (Added based on research context) |
+| Epic E6: Teams channel layer & bot integration | Done (Added based on research context) |
 
 ## Definition of done
 - Documentation updated
@@ -314,29 +314,34 @@ This backlog is the single source of truth for project status. Every Epic, Featu
 ---
 
 ### Epic E6: Teams channel layer & bot integration
-- Status: Proposed (Added based on research context)
+- Status: Done (Added based on research context)
 - Acceptance criteria:
   - Teams bot handlers remain thin with no business logic
   - Channel inputs mapped to application orchestration contracts
   - Correlation IDs and error handling propagated from channel to services
 
 #### Feature E6.F1: Bot handler boundaries
-- Status: Proposed (Added based on research context)
+- Status: Done (Added based on research context)
 - Acceptance criteria:
   - Handler responsibilities documented (routing, validation, auth context)
   - No domain logic inside handlers
 
 ##### Task E6.F1.T1: Define channel input model
-- Status: Proposed (Added based on research context)
+- Status: Done (Added based on research context)
 - Acceptance criteria:
   - Input normalization rules documented for messages and commands
   - Mapping to application-layer request contracts documented
+  - Notes:
+    - Normalized fields documented in `docs/teams-channel.md`.
+    - Commands use prefix-based routing to application services.
 
 ##### Task E6.F1.T2: Define handler error responses
-- Status: Proposed (Added based on research context)
+- Status: Done (Added based on research context)
 - Acceptance criteria:
   - User-facing error taxonomy documented
   - Safe fallback messaging documented
+  - Notes:
+    - Error taxonomy and safe responses documented in `docs/teams-channel.md`.
 
 ## Risk register
 

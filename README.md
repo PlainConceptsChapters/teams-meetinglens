@@ -141,6 +141,7 @@ See `LICENSE`.
 - `AGENTS.md`
 - `docs/observability.md`
 - `docs/security.md`
+- `docs/teams-channel.md`
 - `.copilots/skills/developer.md`
 - `.copilots/skills/quality.md`
 - `.copilots/skills/manager.md`
