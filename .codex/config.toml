@@ -1,0 +1,27 @@
+# Codex repo configuration
+
+[repo]
+name = "teams-meetinglens"
+language = "typescript"
+
+[docs]
+entrypoint = "README.md"
+backlog = "BACKLOG.md"
+agents = "AGENTS.md"
+
+[commands]
+lint = "npm run lint"
+typecheck = "npm run typecheck"
+test = "npm test"
+
+[files]
+# Safety: never modify local env files
+protected = [".env"]
+# Common ignores
+ignore = ["node_modules/", "dist/", "coverage/"]
+
+[policies]
+# Require documentation updates for backlog status changes
+update_backlog_on_status_change = true
+# Avoid adding end-to-end Teams UI tests in this repo
+disallow_e2e_ui_tests = true

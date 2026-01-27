@@ -9,11 +9,11 @@ This backlog is the single source of truth for project status. Every Epic, Featu
 | Milestone M0: Docs only | Done |
 | Milestone M1: Repo skeleton + CI | Done |
 | Milestone M2: Auth + Graph calendar | Done |
-| Milestone M3: Meetings & transcripts | Proposed |
+| Milestone M3: Meetings & transcripts | Done |
 | Milestone M4: Summarization & Q&A | Proposed |
 | Epic E1: Foundation & repo hygiene | Done |
 | Epic E2: Auth & identity (OBO) | Done |
-| Epic E3: Graph meetings & transcripts | In Progress |
+| Epic E3: Graph meetings & transcripts | Done |
 | Epic E4: LLM summarization & Q&A | Proposed |
 | Epic E5: Observability & security | Planned |
 | Epic E6: Teams channel layer & bot integration | Proposed (Added based on research context) |
@@ -46,7 +46,7 @@ This backlog is the single source of truth for project status. Every Epic, Featu
   - Unit tests for auth and Graph wrappers
 
 ### M3: Meetings & transcripts
-- Status: Proposed
+- Status: Done
 - Acceptance criteria:
   - Meeting lookup and transcript retrieval supported where permitted
   - Transcript availability clearly handled with error states
@@ -196,15 +196,19 @@ This backlog is the single source of truth for project status. Every Epic, Featu
     - Resolution priority: explicit meeting id > joinUrl > time/subject.
 
 #### Feature E3.F3: Transcript retrieval
-- Status: Proposed
+- Status: Done
 - Acceptance criteria:
   - Transcript availability checks and fallback messaging
   - Unit tests for transcript retrieval and parsing
 
 ##### Task E3.F3.T1: Define transcript access policy
-- Status: Proposed
+- Status: Done
 - Acceptance criteria:
   - Access checks and error messages documented
+  - Notes:
+    - Default to `/me/onlineMeetings/{id}/transcripts` with delegated permissions.
+    - Treat empty transcript lists as "not available" and surface a clear user message.
+    - On 404 for content, retry with alternate content formats before failing.
 
 ---
 

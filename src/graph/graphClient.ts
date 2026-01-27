@@ -27,6 +27,20 @@ export class GraphClient {
     return this.request<T>('GET', path, undefined, query);
   }
 
+  async requestText(path: string, query?: Record<string, string>): Promise<string> {
+    const url = this.buildUrl(path, query);
+    const token = await this.tokenProvider();
+    const init: RequestInit = {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    };
+
+    const response = await this.executeWithRetryRaw(url, init);
+    return response.text();
+  }
+
   async request<T>(method: string, path: string, body?: unknown, query?: Record<string, string>): Promise<T> {
     const url = this.buildUrl(path, query);
     const token = await this.tokenProvider();
@@ -84,6 +98,32 @@ export class GraphClient {
       const errorPayload = (await response.json().catch(() => ({}))) as { error?: { code?: string; message?: string } };
       const message = errorPayload.error?.message ?? `Graph request failed (${response.status})`;
       const error = mapGraphError(response.status, message, errorPayload.error?.code);
+      throw error;
+    }
+
+    throw new Error('Graph request retry loop exhausted.');
+  }
+
+  private async executeWithRetryRaw(url: string, init: RequestInit): Promise<Response> {
+    const retry = this.retryConfig;
+    const attempts = retry?.maxAttempts ?? 1;
+    const baseDelay = retry?.baseDelayMs ?? 250;
+
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      const response = await this.fetcher(url, init);
+      if (response.ok) {
+        return response;
+      }
+
+      if ((response.status === 429 || response.status === 503) && attempt < attempts) {
+        const retryAfter = this.getRetryAfterSeconds(response);
+        await this.delay((retryAfter ?? baseDelay / 1000) * 1000 * attempt);
+        continue;
+      }
+
+      const payload = await response.text().catch(() => '');
+      const error = new Error(`Graph request failed (${response.status}) ${payload}`.trim());
+      (error as { status?: number }).status = response.status;
       throw error;
     }
 
