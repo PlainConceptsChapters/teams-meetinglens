@@ -139,6 +139,8 @@ See `LICENSE`.
 ## Related documentation
 - `BACKLOG.md`
 - `AGENTS.md`
+- `docs/observability.md`
+- `docs/security.md`
 - `.copilots/skills/developer.md`
 - `.copilots/skills/quality.md`
 - `.copilots/skills/manager.md`

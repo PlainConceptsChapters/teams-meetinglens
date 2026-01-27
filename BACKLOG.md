@@ -15,7 +15,7 @@ This backlog is the single source of truth for project status. Every Epic, Featu
 | Epic E2: Auth & identity (OBO) | Done |
 | Epic E3: Graph meetings & transcripts | Done |
 | Epic E4: LLM summarization & Q&A | Done |
-| Epic E5: Observability & security | Planned |
+| Epic E5: Observability & security | Done |
 | Epic E6: Teams channel layer & bot integration | Proposed (Added based on research context) |
 
 ## Definition of done
@@ -278,32 +278,38 @@ This backlog is the single source of truth for project status. Every Epic, Featu
 ---
 
 ### Epic E5: Observability & security
-- Status: Planned
+- Status: Done
 - Acceptance criteria:
   - Logging, metrics, and tracing strategy defined
   - Security checklist and compliance guardrails documented
 
 #### Feature E5.F1: Logging and tracing
-- Status: Planned
+- Status: Done
 - Acceptance criteria:
   - Structured log schema and correlation IDs documented
   - Trace propagation across Graph and OpenAI calls
 
 ##### Task E5.F1.T1: Define log redaction rules
-- Status: Planned
+- Status: Done
 - Acceptance criteria:
   - PII redaction rules documented
+  - Notes:
+    - Redact emails, phone numbers, SSNs, auth tokens, and transcript content by default.
+    - Log only hash or truncated identifiers for user/meeting IDs.
 
 #### Feature E5.F2: Security checklist
-- Status: Planned
+- Status: Done
 - Acceptance criteria:
   - Threat model checklist documented
   - Dependency and secrets scanning plan documented
 
 ##### Task E5.F2.T1: Define secrets handling policy
-- Status: Planned
+- Status: Done
 - Acceptance criteria:
   - Key rotation and vault usage documented
+  - Notes:
+    - Use Azure Key Vault in non-local environments; no secrets in code or logs.
+    - Rotate client secrets and API keys on a defined cadence (e.g., 90 days).
 
 ---
 
