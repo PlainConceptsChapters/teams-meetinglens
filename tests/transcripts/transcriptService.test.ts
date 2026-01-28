@@ -5,7 +5,9 @@ import { NotFoundError } from '../../src/errors/index.js';
 
 const createGraphClient = (responses: { list?: unknown; content?: string; status?: number } = {}) => {
   const fetcher: typeof fetch = async (input) => {
-    const url = new URL(typeof input === 'string' ? input : input.url);
+    const url = new URL(
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+    );
     const path = url.pathname;
 
     if (path.endsWith('/transcripts') && !path.includes('/content')) {

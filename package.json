@@ -18,6 +18,7 @@
     "teamsapp:pack": "npm run teamsapp:build && powershell -NoProfile -Command \"Compress-Archive -Path teamsapp\\manifest.json,teamsapp\\color.png,teamsapp\\outline.png -DestinationPath teamsapp\\teamsapp.zip -Force\""
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "@types/node": "^20.11.30",
     "@typescript-eslint/eslint-plugin": "^7.7.1",
     "@typescript-eslint/parser": "^7.7.1",

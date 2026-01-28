@@ -5,7 +5,9 @@ import { MeetingResolver } from '../../src/graph/meetingResolver.js';
 
 const createCalendarService = (event = { id: '1', subject: 'Daily', onlineMeeting: { joinUrl: 'https://join' } }) => {
   const fetcher: typeof fetch = async (input) => {
-    const url = new URL(typeof input === 'string' ? input : input.url);
+    const url = new URL(
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+    );
     const path = url.pathname;
     if (path.startsWith('/v1.0/me/events/')) {
       return new Response(JSON.stringify(event), {

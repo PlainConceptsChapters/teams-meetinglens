@@ -7,7 +7,9 @@ const createGraphClient = () => {
   let lastQuery: Record<string, string> | undefined;
 
   const fetcher: typeof fetch = async (input) => {
-    const url = new URL(typeof input === 'string' ? input : input.url);
+    const url = new URL(
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+    );
     const path = url.pathname.startsWith('/v1.0') ? url.pathname.slice('/v1.0'.length) : url.pathname;
     lastPath = path;
     lastQuery = Object.fromEntries(url.searchParams.entries());

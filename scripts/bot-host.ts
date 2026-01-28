@@ -1,12 +1,14 @@
 import 'dotenv/config';
 import fs from 'node:fs/promises';
-import express from 'express';
+import express, { Request, Response } from 'express';
 import {
   TeamsActivityHandler,
   CloudAdapter,
   ConfigurationServiceClientCredentialFactory,
-  ConfigurationBotFrameworkAuthentication
+  ConfigurationBotFrameworkAuthentication,
+  TurnContext
 } from 'botbuilder';
+import { Attachment, Mention } from 'botframework-schema';
 import { AzureOpenAiClient, QaService, SummarizationService } from '../src/index.js';
 import { TeamsCommandRouter } from '../src/teams/router.js';
 import { ChannelRequest } from '../src/teams/types.js';
@@ -95,44 +97,49 @@ const router = new TeamsCommandRouter({
   }
 });
 
-class TeamsBot extends TeamsActivityHandler {
-  async onMessage(context, next) {
-    const activity = context.activity;
-    const request: ChannelRequest = {
-      channelId: activity.channelId ?? 'msteams',
-      conversationId: activity.conversation?.id ?? '',
-      messageId: activity.id ?? '',
-      fromUserId: activity.from?.id ?? '',
-      fromUserName: activity.from?.name ?? undefined,
-      tenantId: activity.conversation?.tenantId ?? activity.channelData?.tenant?.id,
-      text: activity.text ?? '',
-      attachments: activity.attachments?.map((attachment) => ({
-        name: attachment.name,
-        contentType: attachment.contentType,
-        size: attachment.contentLength,
-        url: attachment.contentUrl
-      })),
-      mentions: activity.entities
-        ?.filter((entity) => entity.type === 'mention')
-        .map((entity) => ({
-          id: entity.mentioned?.id,
-          name: entity.mentioned?.name,
-          text: entity.text
-        })),
-      timestamp: activity.timestamp?.toISOString(),
-      locale: activity.locale ?? undefined
-    };
+type ActivityAttachment = Attachment & { contentLength?: number };
 
-    const response = await router.handle(request);
-    await context.sendActivity(response.text);
-    await next();
+class TeamsBot extends TeamsActivityHandler {
+  constructor() {
+    super();
+    this.onMessage(async (context: TurnContext, next: () => Promise<void>) => {
+      const activity = context.activity;
+      const request: ChannelRequest = {
+        channelId: activity.channelId ?? 'msteams',
+        conversationId: activity.conversation?.id ?? '',
+        messageId: activity.id ?? '',
+        fromUserId: activity.from?.id ?? '',
+        fromUserName: activity.from?.name ?? undefined,
+        tenantId: activity.conversation?.tenantId ?? activity.channelData?.tenant?.id,
+        text: activity.text ?? '',
+        attachments: (activity.attachments as ActivityAttachment[] | undefined)?.map((attachment) => ({
+          name: attachment.name,
+          contentType: attachment.contentType,
+          size: attachment.contentLength,
+          url: attachment.contentUrl
+        })),
+        mentions: activity.entities
+          ?.filter((entity): entity is Mention => entity.type === 'mention')
+          .map((entity) => ({
+            id: entity.mentioned?.id,
+            name: entity.mentioned?.name,
+            text: entity.text
+          })),
+        timestamp: activity.timestamp?.toISOString(),
+        locale: activity.locale ?? undefined
+      };
+
+      const response = await router.handle(request);
+      await context.sendActivity(response.text);
+      await next();
+    });
   }
 }
 
 const bot = new TeamsBot();
 
 const app = express();
-app.post(endpointPath, (req, res) => {
+app.post(endpointPath, (req: Request, res: Response) => {
   adapter.process(req, res, async (turnContext) => {
     await bot.run(turnContext);
   });

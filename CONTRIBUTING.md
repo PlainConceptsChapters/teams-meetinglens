@@ -37,6 +37,17 @@ From Azure Bot registration:
 2. Under **Configuration**, note the **Microsoft App ID** (same as Entra App ID).
 3. Use the client secret you created in Entra as the **Microsoft App Password**.
 
+### Creating an Azure Bot resource
+1. In the Azure portal, click **Create a resource** and search for **Azure Bot**.
+2. Choose **Azure Bot** (Bot Channels Registration) and click **Create**.
+3. Fill in:
+   - **Bot handle**: a friendly name (e.g., `meetinglens-dev`).
+   - **Subscription / Resource Group / Region**: select your dev environment.
+   - **Type of App**: **Single Tenant**.
+   - **Microsoft App ID**: use the App (client) ID from your Entra app registration.
+4. Click **Create** to provision the bot.
+5. Open the bot resource -> **Channels** -> add **Microsoft Teams**.
+
 Steps:
 1. Populate `.env` with your Entra and Teams values (including `TEAMS_APP_ID` and `TEAMS_APP_PASSWORD`).
 2. Configure a dev tunnel to expose `http://localhost:3978/api/messages`.
