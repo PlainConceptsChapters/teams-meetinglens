@@ -26,6 +26,8 @@ const requiredKeys = [
   'help.how',
   'help.contribute',
   'help.help',
+  'help.whoami',
+  'help.graphdebug',
   'help.examplesTitle',
   'help.examples',
   'howItWorks',
@@ -52,7 +54,14 @@ const requiredKeys = [
   'auth.signIn',
   'auth.signInCta',
   'auth.codeInvalid',
-  'auth.signedIn'
+  'auth.signedIn',
+  'debug.title',
+  'debug.user',
+  'debug.tenant',
+  'debug.graphToken',
+  'debug.oauth',
+  'debug.graphOk',
+  'debug.graphError'
 ];
 
 describe('i18n catalogs', () => {

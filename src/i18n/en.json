@@ -11,6 +11,8 @@
     "how": "/how - how I work and what data I use",
     "contribute": "/contribute - how to contribute and repo link",
     "help": "/help - show this message",
+    "whoami": "/whoami - show debug info (token + tenant)",
+    "graphdebug": "/graphdebug - test Graph access",
     "examplesTitle": "Examples:",
     "examples": "- check my agenda\n- /agenda today design\n- /select 2\n- /summary\n- /qa what did we decide?\n- /language es\n- /contribute"
   },
@@ -52,5 +54,14 @@
     "signInCta": "Sign in",
     "codeInvalid": "I couldn't verify that code. Please try signing in again.",
     "signedIn": "You're signed in. Ask me about your meetings."
+  },
+  "debug": {
+    "title": "Debug info:",
+    "user": "User ID: {value}",
+    "tenant": "Tenant ID: {value}",
+    "graphToken": "Graph token: {value}",
+    "oauth": "OAuth connection: {value}",
+    "graphOk": "Graph access OK. Calendar items (last 7 days to next 1 day): {count}. Range: {range}",
+    "graphError": "Graph access failed: {message}"
   }
 }

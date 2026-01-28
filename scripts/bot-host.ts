@@ -289,6 +289,35 @@ const loadTranslations = async (): Promise<TranslationCatalog> => {
   return JSON.parse(enRaw) as TranslationCatalog;
 };
 
+const runGraphDebug = async (request: ChannelRequest) => {
+  const graphClient = new GraphClient({
+    baseUrl: graphBaseUrl,
+    tokenProvider: () => getGraphTokenForRequest(request)
+  });
+  const now = new Date();
+  const start = new Date(now);
+  start.setDate(start.getDate() - 7);
+  const end = new Date(now);
+  end.setDate(end.getDate() + 1);
+  try {
+    await graphClient.get('/me', undefined);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown error';
+    return { ok: false, error: message };
+  }
+  try {
+    const response = await graphClient.get<{ value?: unknown[] }>('/me/calendarView', {
+      startDateTime: start.toISOString(),
+      endDateTime: end.toISOString()
+    });
+    const count = response.value?.length ?? 0;
+    return { ok: true, count, start, end };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown error';
+    return { ok: false, error: message };
+  }
+};
+
 const translations = await loadTranslations();
 
 const t = (keyPath: string, vars?: Record<string, string>): string => {
@@ -586,6 +615,7 @@ const findMeetingFromNlu = async (
   nlu: NluResult | undefined,
   requireTranscript: boolean
 ): Promise<import('../src/agenda/types.js').AgendaItem | undefined> => {
+  const includeAll = englishText.toLowerCase().includes('all');
   const fallbackRange = parseAgendaRange(englishText);
   const nluRange = resolveDateRangeFromNlu(nlu);
   const range = nluRange ?? { start: fallbackRange.start, end: fallbackRange.end };
@@ -658,6 +688,11 @@ const isWhoamiIntent = (text: string): boolean => {
   return lower.includes('whoami') || lower.includes('who am i') || lower.includes('debug');
 };
 
+const isGraphDebugIntent = (text: string): boolean => {
+  const lower = text.toLowerCase();
+  return lower.includes('graph debug') || lower.includes('graphstatus') || lower.includes('graph status');
+};
+
 const isTodayIntent = (text: string): boolean => {
   const lower = text.toLowerCase();
   return (
@@ -685,6 +720,7 @@ const handleAgendaRequest = async (request: ChannelRequest) => {
   const preferred = await resolvePreferredLanguage(request, language);
   const userText = remainder || request.text || '';
   const englishText = await translateToEnglish(userText, preferred);
+  const includeAll = englishText.toLowerCase().includes('all');
   const nlu = await getNluService()?.parse(englishText, new Date(), systemTimeZone);
   if (!request.graphToken && !graphAccessToken) {
     return {
@@ -716,10 +752,10 @@ const handleAgendaRequest = async (request: ChannelRequest) => {
       text: await translateOutgoing(t('agenda.none', { range: formatRangeLabel(range) }), preferred)
     };
   }
-  const filtered = agenda.items.filter((item) => item.transcriptAvailable);
+  const filtered = includeAll ? agenda.items : agenda.items.filter((item) => item.transcriptAvailable);
   if (!filtered.length) {
     return {
-      text: await translateOutgoing(t('transcript.notAvailable'), preferred)
+      text: await translateOutgoing(includeAll ? t('agenda.none', { range: formatRangeLabel(range) }) : t('transcript.notAvailable'), preferred)
     };
   }
   const formatted = filtered.map((item, index) => {
@@ -765,6 +801,31 @@ const router = new TeamsCommandRouter({
           t('debug.oauth', { value: oauthConnection || 'not-configured' })
         ];
         return { text: await translateOutgoing(lines.join('\n'), language) };
+      }
+    },
+    {
+      command: 'graphdebug',
+      handler: async (request) => {
+        const language = await resolvePreferredLanguage(request);
+        if (!request.graphToken && !graphAccessToken) {
+          return {
+            text: await translateOutgoing(t('auth.signIn'), language),
+            metadata: request.signInLink ? { signinLink: request.signInLink } : undefined
+          };
+        }
+        const debug = await runGraphDebug(request);
+        if (!debug.ok) {
+          return { text: await translateOutgoing(t('debug.graphError', { message: debug.error ?? 'unknown' }), language) };
+        }
+        return {
+          text: await translateOutgoing(
+            t('debug.graphOk', {
+              count: String(debug.count ?? 0),
+              range: `${debug.start?.toISOString()} -> ${debug.end?.toISOString()}`
+            }),
+            language
+          )
+        };
       }
     },
     {
@@ -964,6 +1025,27 @@ const router = new TeamsCommandRouter({
         t('debug.oauth', { value: oauthConnection || 'not-configured' })
       ];
       return { text: await translateOutgoing(lines.join('\n'), preferred) };
+    }
+    if (isGraphDebugIntent(englishText)) {
+      if (!request.graphToken && !graphAccessToken) {
+        return {
+          text: await translateOutgoing(t('auth.signIn'), preferred),
+          metadata: request.signInLink ? { signinLink: request.signInLink } : undefined
+        };
+      }
+      const debug = await runGraphDebug(request);
+      if (!debug.ok) {
+        return { text: await translateOutgoing(t('debug.graphError', { message: debug.error ?? 'unknown' }), preferred) };
+      }
+      return {
+        text: await translateOutgoing(
+          t('debug.graphOk', {
+            count: String(debug.count ?? 0),
+            range: `${debug.start?.toISOString()} -> ${debug.end?.toISOString()}`
+          }),
+          preferred
+        )
+      };
     }
     if (isTodayIntent(englishText)) {
       const today = new Date();
