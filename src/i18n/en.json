@@ -13,6 +13,7 @@
     "help": "/help - show this message",
     "whoami": "/whoami - show debug info (token + tenant)",
     "graphdebug": "/graphdebug - test Graph access",
+    "logs": "/logs on|off - toggle debug logs",
     "examplesTitle": "Examples:",
     "examples": "- check my agenda\n- /agenda today design\n- /select 2\n- /summary\n- /qa what did we decide?\n- /language es\n- /contribute"
   },
@@ -64,5 +65,11 @@
     "oauth": "OAuth connection: {value}",
     "graphOk": "Graph access OK. Calendar items (last 7 days to next 1 day): {count}. With join URL: {withJoinUrl}. With transcripts: {withTranscript}. Range: {range}",
     "graphError": "Graph access failed: {message}"
+  },
+  "logs": {
+    "enabled": "Debug logs enabled for this chat.",
+    "disabled": "Debug logs disabled for this chat.",
+    "statusOn": "Debug logs are currently ON.",
+    "statusOff": "Debug logs are currently OFF."
   }
 }

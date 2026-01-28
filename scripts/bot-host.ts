@@ -167,6 +167,10 @@ const getLanguageKey = (request: ChannelRequest) => {
   return `${request.conversationId}:${user}`;
 };
 
+const getLogKey = (request: ChannelRequest) => getLanguageKey(request);
+
+const isLogEnabled = (request: ChannelRequest) => logStore.get(getLogKey(request)) ?? false;
+
 const isLikelyEnglishText = (text?: string) => {
   if (!text) {
     return false;
@@ -180,6 +184,13 @@ const isLikelyEnglishText = (text?: string) => {
     return false;
   }
   return trimmed.length <= 20 || /^[a-z0-9\s.,!?'"-]+$/i.test(trimmed);
+};
+
+const hasNonAscii = (text?: string) => {
+  if (!text) {
+    return false;
+  }
+  return /[^\x00-\x7F]/.test(text);
 };
 
 const resolvePreferredLanguage = async (
@@ -201,17 +212,16 @@ const resolvePreferredLanguage = async (
     }
     return locale;
   }
-  const service = getTranslationService();
-  if (service && request.text) {
-    try {
-      const detected = normalizeLanguage(await service.detectLanguage(request.text)) ?? 'en';
-      if (detected !== 'en' && isLikelyEnglishText(request.text)) {
+  if (hasNonAscii(request.text)) {
+    const service = getTranslationService();
+    if (service && request.text) {
+      try {
+        const detected = normalizeLanguage(await service.detectLanguage(request.text)) ?? 'en';
+        languageStore.set(getLanguageKey(request), detected);
+        return detected;
+      } catch {
         return 'en';
       }
-      languageStore.set(getLanguageKey(request), detected);
-      return detected;
-    } catch {
-      return 'en';
     }
   }
   return 'en';
@@ -224,6 +234,7 @@ const selectionStore = new Map<
   string,
   { items: { index: number; title: string; details: string; agendaItem: import('../src/agenda/types.js').AgendaItem }[] }
 >();
+const logStore = new Map<string, boolean>();
 let translationService: TranslationService | undefined;
 let nluService: NluService | undefined;
 
@@ -437,6 +448,26 @@ const parseRelativeDays = (text: string, base: Date): { start: Date; end: Date; 
   return { start, end: new Date(end.getTime() + 1), remainder };
 };
 
+const stripDateNoise = (value?: string): string => {
+  if (!value) {
+    return '';
+  }
+  return value
+    .replace(
+      /\b(today|tomorrow|yesterday|last|next|this|week|month|year|day|days|past|from)\b/gi,
+      ''
+    )
+    .replace(
+      /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/gi,
+      ''
+    )
+    .replace(/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi, '')
+    .replace(/\b(on|in|at|for|the|of)\b/gi, '')
+    .replace(/[\d\/\-,?]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
 const parseRelativeWeekday = (text: string, base: Date): { start: Date; end: Date; remainder: string } | undefined => {
   const weekdays: Record<string, number> = {
     sunday: 0,
@@ -643,11 +674,13 @@ const findMeetingFromNlu = async (
   nlu: NluResult | undefined,
   requireTranscript: boolean
 ): Promise<import('../src/agenda/types.js').AgendaItem | undefined> => {
-  const includeAll = englishText.toLowerCase().includes('all');
   const fallbackRange = parseAgendaRange(englishText);
   const nluRange = resolveDateRangeFromNlu(nlu);
   const range = nluRange ?? { start: fallbackRange.start, end: fallbackRange.end };
-  const subjectQuery = nlu?.subject ?? fallbackRange.remainder;
+  const explicitSubject =
+    /\b(about|subject|titled|called|with|regarding|keyword)\b/i.test(englishText);
+  const subjectCandidate = stripDateNoise(nlu?.subject ?? fallbackRange.remainder);
+  const subjectQuery = explicitSubject && subjectCandidate.length >= 3 ? subjectCandidate : '';
   const { agendaService } = buildGraphServicesForRequest(request);
   const agenda = await agendaService.searchAgenda({
     ...formatDateRange(range),
@@ -713,7 +746,7 @@ const isHelpIntent = (text: string): boolean => {
 
 const isWhoamiIntent = (text: string): boolean => {
   const lower = text.toLowerCase();
-  return lower.includes('whoami') || lower.includes('who am i') || lower.includes('debug');
+  return lower.includes('whoami') || lower.includes('who am i');
 };
 
 const isGraphDebugIntent = (text: string): boolean => {
@@ -755,10 +788,13 @@ const handleAgendaRequest = async (request: ChannelRequest) => {
       metadata: request.signInLink ? { signinLink: request.signInLink } : undefined
     };
   }
+  const explicitSubject =
+    /\b(about|subject|titled|called|with|regarding|keyword)\b/i.test(englishText);
   const fallbackRange = parseAgendaRange(englishText);
   const nluRange = resolveDateRangeFromNlu(nlu);
   const range = nluRange ?? { start: fallbackRange.start, end: fallbackRange.end };
-  const subjectQuery = nlu?.subject ?? fallbackRange.remainder;
+  const subjectCandidate = stripDateNoise(nlu?.subject ?? fallbackRange.remainder);
+  const subjectQuery = explicitSubject && subjectCandidate.length >= 3 ? subjectCandidate : '';
   const { agendaService } = buildGraphServicesForRequest(request);
   let agenda;
   try {
@@ -773,6 +809,14 @@ const handleAgendaRequest = async (request: ChannelRequest) => {
     return {
       text: await translateOutgoing(t('agenda.cannotAccess', { message }), preferred)
     };
+  }
+  if (isLogEnabled(request)) {
+  console.log('[debug] agenda range', range.start.toISOString(), range.end.toISOString());
+  console.log('[debug] agenda subject', subjectQuery || '');
+  console.log('[debug] agenda subject explicit', explicitSubject);
+    console.log('[debug] agenda total items', agenda.items.length);
+    console.log('[debug] agenda joinUrl count', agenda.items.filter((item) => item.joinUrl).length);
+    console.log('[debug] agenda transcript count', agenda.items.filter((item) => item.transcriptAvailable).length);
   }
   if (!agenda.items.length) {
     return {
@@ -828,6 +872,23 @@ const router = new TeamsCommandRouter({
           t('debug.oauth', { value: oauthConnection || 'not-configured' })
         ];
         return { text: await translateOutgoing(lines.join('\n'), language) };
+      }
+    },
+    {
+      command: 'logs',
+      handler: async (request) => {
+        const language = await resolvePreferredLanguage(request);
+        const action = request.text.trim().toLowerCase();
+        if (action === 'on') {
+          logStore.set(getLogKey(request), true);
+          return { text: await translateOutgoing(t('logs.enabled'), language) };
+        }
+        if (action === 'off') {
+          logStore.set(getLogKey(request), false);
+          return { text: await translateOutgoing(t('logs.disabled'), language) };
+        }
+        const status = isLogEnabled(request) ? t('logs.statusOn') : t('logs.statusOff');
+        return { text: await translateOutgoing(status, language) };
       }
     },
     {
@@ -1077,6 +1138,19 @@ const router = new TeamsCommandRouter({
           preferred
         )
       };
+    }
+    if (englishText.trim().toLowerCase().startsWith('/logs')) {
+      const rest = englishText.replace(/^\/logs\s*/i, '').trim().toLowerCase();
+      if (rest === 'on') {
+        logStore.set(getLogKey(request), true);
+        return { text: await translateOutgoing(t('logs.enabled'), preferred) };
+      }
+      if (rest === 'off') {
+        logStore.set(getLogKey(request), false);
+        return { text: await translateOutgoing(t('logs.disabled'), preferred) };
+      }
+      const status = isLogEnabled(request) ? t('logs.statusOn') : t('logs.statusOff');
+      return { text: await translateOutgoing(status, preferred) };
     }
     if (isTodayIntent(englishText)) {
       const today = new Date();
