@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { extractCommand, normalizeChannelRequest } from '../../src/teams/normalize.js';
 import { InvalidRequestError } from '../../src/errors/index.js';
+import { ChannelRequest } from '../../src/teams/types.js';
 
-const baseRequest = {
+const baseRequest: ChannelRequest = {
   channelId: 'c1',
   conversationId: 'conv',
   messageId: 'm1',
@@ -12,12 +13,12 @@ const baseRequest = {
 
 describe('normalizeChannelRequest', () => {
   it('collapses whitespace', () => {
-    const normalized = normalizeChannelRequest(baseRequest as any);
+    const normalized = normalizeChannelRequest(baseRequest);
     expect(normalized.text).toBe('hello world');
   });
 
   it('throws on empty text', () => {
-    expect(() => normalizeChannelRequest({ ...baseRequest, text: '   ' } as any)).toThrow(InvalidRequestError);
+    expect(() => normalizeChannelRequest({ ...baseRequest, text: '   ' })).toThrow(InvalidRequestError);
   });
 });
 

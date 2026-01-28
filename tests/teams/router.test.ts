@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { TeamsCommandRouter } from '../../src/teams/router.js';
+import { ChannelRequest } from '../../src/teams/types.js';
 
-const baseRequest = {
+const baseRequest: ChannelRequest = {
   channelId: 'c1',
   conversationId: 'conv',
   messageId: 'm1',
@@ -21,7 +22,7 @@ describe('TeamsCommandRouter', () => {
       defaultHandler: async () => ({ text: 'default' })
     });
 
-    const response = await router.handle(baseRequest as any);
+    const response = await router.handle(baseRequest);
     expect(response.text).toBe('summary:agenda');
   });
 
@@ -31,7 +32,7 @@ describe('TeamsCommandRouter', () => {
       defaultHandler: async (_req, remainder) => ({ text: `default:${remainder}` })
     });
 
-    const response = await router.handle({ ...baseRequest, text: 'hello' } as any);
+    const response = await router.handle({ ...baseRequest, text: 'hello' });
     expect(response.text).toBe('default:hello');
   });
 });

@@ -16,7 +16,9 @@ const createJsonResponse = (payload: unknown, status = 200) => {
 describe('AuthService', () => {
   it('acquires and caches OBO tokens', async () => {
     let callCount = 0;
-    const fetcher = createFetcher(async (_input, _init) => {
+    const fetcher = createFetcher(async (input, init) => {
+      void input;
+      void init;
       callCount += 1;
       return createJsonResponse({ access_token: 'token-123', expires_in: 3600 });
     });

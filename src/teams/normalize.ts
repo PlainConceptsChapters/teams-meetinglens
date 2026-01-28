@@ -8,7 +8,7 @@ const stripLeadingMention = (text: string, botMentionText?: string): string => {
     return text;
   }
   const escaped = botMentionText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = new RegExp(`^${escaped}\s*`, 'i');
+  const pattern = new RegExp(`^${escaped}\\s*`, 'i');
   return text.replace(pattern, '');
 };
 

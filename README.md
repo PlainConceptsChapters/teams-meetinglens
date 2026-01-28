@@ -125,6 +125,7 @@ Notes:
 - `llm:smoke` runs a local Azure OpenAI smoke test (summary + Q&A).
 - `bot:dev` starts the local Teams bot host.
 - `teamsapp:pack` creates a Teams app package zip under `teamsapp/`.
+- `teamsapp:build` renders `teamsapp/manifest.json` from `teamsapp/manifest.template.json` using `TEAMS_APP_ID`.
 
 Azure OpenAI variables (for summarization/Q&A):
 - `AZURE_OPENAI_ENDPOINT`

@@ -152,7 +152,7 @@ This backlog is the single source of truth for project status. Every Epic, Featu
 ---
 
 ### Epic E3: Graph meetings & transcripts
-- Status: In Progress
+- Status: Done
 - Acceptance criteria:
   - Calendar search and meeting resolution APIs available
   - Transcript retrieval paths defined and gated by permissions

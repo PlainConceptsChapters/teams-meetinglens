@@ -1,9 +1,11 @@
+import 'dotenv/config';
 import fs from 'node:fs/promises';
 import express from 'express';
 import {
   TeamsActivityHandler,
   CloudAdapter,
-  ConfigurationServiceClientCredentialFactory
+  ConfigurationServiceClientCredentialFactory,
+  ConfigurationBotFrameworkAuthentication
 } from 'botbuilder';
 import { AzureOpenAiClient, QaService, SummarizationService } from '../src/index.js';
 import { TeamsCommandRouter } from '../src/teams/router.js';
@@ -25,7 +27,11 @@ const credentials = new ConfigurationServiceClientCredentialFactory({
   MicrosoftAppId: requireEnv('TEAMS_APP_ID'),
   MicrosoftAppPassword: requireEnv('TEAMS_APP_PASSWORD')
 });
-const adapter = new CloudAdapter(credentials);
+const botFrameworkAuthentication = new ConfigurationBotFrameworkAuthentication(
+  {},
+  credentials
+);
+const adapter = new CloudAdapter(botFrameworkAuthentication);
 
 const buildTranscript = async (): Promise<{ raw: string; cues: [] }> => {
   if (process.env.BOT_TRANSCRIPT_TEXT) {
