@@ -1,7 +1,7 @@
 {
   "help": {
     "title": "What I can do:",
-    "overview": "- Show your agenda and highlight meetings with transcripts\n- Let you pick a meeting and summarize it\n- Answer questions about a meeting transcript\n- Reply in your language (auto-detected)\n- Commands start with / and are not translated",
+    "overview": "- Show your agenda and highlight meetings with transcripts\n- Let you pick a meeting and summarize it\n- Answer questions about a meeting transcript\n- Reply in your language (auto-detected)\n- You can ask in natural language (for example: \"meetings from last Monday\")\n- Commands start with / and are not translated",
     "commandsTitle": "Commands:",
     "agenda": "/agenda [today|tomorrow|week|yesterday] [keyword] - list meetings",
     "select": "/select <number> - choose a meeting from the list",
@@ -37,5 +37,11 @@
   "transcript": {
     "notConfigured": "Transcript not configured.",
     "notAvailable": "No transcript available for that meeting."
+  },
+  "meeting": {
+    "notFound": "I couldn't find a matching meeting."
+  },
+  "fallback": {
+    "unknown": "I can help with your agenda, meeting summaries, or questions. Try: \"show my meetings from last Monday\"."
   }
 }

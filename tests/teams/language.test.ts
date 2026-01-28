@@ -15,7 +15,7 @@ describe('language helpers', () => {
     expect(normalizeLanguage('en')).toBe('en');
     expect(normalizeLanguage('ES')).toBe('es');
     expect(normalizeLanguage('ro-RO')).toBe('ro');
-    expect(normalizeLanguage('fr')).toBeUndefined();
+    expect(normalizeLanguage('fr')).toBe('fr');
   });
 
   it('extracts language tokens', () => {
@@ -25,7 +25,7 @@ describe('language helpers', () => {
   });
 
   it('resolves language with preference fallback', () => {
-    const store = new Map<string, 'en' | 'es' | 'ro'>();
+    const store = new Map<string, string>();
     const explicit = resolveLanguage(baseRequest, 'es', store);
     expect(explicit).toBe('es');
     expect(store.get(baseRequest.conversationId)).toBe('es');

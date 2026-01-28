@@ -21,6 +21,8 @@ import {
   TranscriptService
 } from '../src/index.js';
 import { TranslationService } from '../src/llm/translationService.js';
+import type { NluResult } from '../src/teams/nluService.js';
+import { NluService } from '../src/teams/nluService.js';
 import { LanguageCode, extractLanguageToken, languageNames, normalizeLanguage } from '../src/teams/language.js';
 import { TeamsCommandRouter } from '../src/teams/router.js';
 import { ChannelRequest } from '../src/teams/types.js';
@@ -38,6 +40,7 @@ const endpointPath = process.env.BOT_ENDPOINT_PATH ?? '/api/messages';
 const botMentionText = process.env.BOT_MENTION_TEXT;
 const graphBaseUrl = process.env.GRAPH_BASE_URL ?? 'https://graph.microsoft.com/v1.0';
 const graphAccessToken = process.env.GRAPH_ACCESS_TOKEN;
+const systemTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 const botFrameworkAuthentication = new ConfigurationBotFrameworkAuthentication({
   MicrosoftAppId: requireEnv('TEAMS_BOT_ID'),
@@ -97,6 +100,18 @@ const getTranslationService = (): TranslationService | undefined => {
   try {
     translationService = new TranslationService({ client: buildLlmClient() });
     return translationService;
+  } catch {
+    return undefined;
+  }
+};
+
+const getNluService = (): NluService | undefined => {
+  if (nluService) {
+    return nluService;
+  }
+  try {
+    nluService = new NluService({ client: buildLlmClient() });
+    return nluService;
   } catch {
     return undefined;
   }
@@ -180,6 +195,7 @@ const selectionStore = new Map<
   { items: { index: number; title: string; details: string; agendaItem: import('../src/agenda/types.js').AgendaItem }[] }
 >();
 let translationService: TranslationService | undefined;
+let nluService: NluService | undefined;
 
 const getAgendaService = (): AgendaService => {
   const existing = agendaStore.get('default');
@@ -339,6 +355,85 @@ const parseAgendaRange = (text: string): { start: Date; end: Date; remainder: st
   return { start, end, remainder: text.trim() };
 };
 
+const resolveDateRangeFromNlu = (nlu?: NluResult): { start: Date; end: Date } | undefined => {
+  if (!nlu?.dateRange?.startDateTime || !nlu?.dateRange?.endDateTime) {
+    return undefined;
+  }
+  const start = new Date(nlu.dateRange.startDateTime);
+  const end = new Date(nlu.dateRange.endDateTime);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return undefined;
+  }
+  return { start, end };
+};
+
+const parseTimeToMinutes = (value?: string): number | undefined => {
+  if (!value) {
+    return undefined;
+  }
+  const match = value.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) {
+    return undefined;
+  }
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (Number.isNaN(hour) || Number.isNaN(minute) || hour > 23 || minute > 59) {
+    return undefined;
+  }
+  return hour * 60 + minute;
+};
+
+const findClosestMeetingByTime = (
+  items: import('../src/agenda/types.js').AgendaItem[],
+  targetMinutes?: number
+) => {
+  if (targetMinutes === undefined) {
+    return items[0];
+  }
+  const scored = items
+    .map((item) => {
+      const start = item.start ? new Date(item.start) : undefined;
+      if (!start || Number.isNaN(start.getTime())) {
+        return { item, diff: Number.POSITIVE_INFINITY };
+      }
+      const minutes = start.getHours() * 60 + start.getMinutes();
+      return { item, diff: Math.abs(minutes - targetMinutes) };
+    })
+    .filter((entry) => Number.isFinite(entry.diff));
+  if (!scored.length) {
+    return undefined;
+  }
+  scored.sort((a, b) => a.diff - b.diff);
+  return scored[0].item;
+};
+
+const findMeetingFromNlu = async (
+  englishText: string,
+  nlu: NluResult | undefined,
+  requireTranscript: boolean
+): Promise<import('../src/agenda/types.js').AgendaItem | undefined> => {
+  const fallbackRange = parseAgendaRange(englishText);
+  const nluRange = resolveDateRangeFromNlu(nlu);
+  const range = nluRange ?? { start: fallbackRange.start, end: fallbackRange.end };
+  const subjectQuery = nlu?.subject ?? fallbackRange.remainder;
+  const agendaService = getAgendaService();
+  const agenda = await agendaService.searchAgenda({
+    ...formatDateRange(range),
+    subjectContains: subjectQuery || undefined,
+    includeTranscriptAvailability: true,
+    top: 10
+  });
+  let items = agenda.items;
+  if (requireTranscript) {
+    items = items.filter((item) => item.transcriptAvailable);
+  }
+  if (!items.length) {
+    return undefined;
+  }
+  const targetMinutes = parseTimeToMinutes(nlu?.time);
+  return findClosestMeetingByTime(items, targetMinutes);
+};
+
 const formatAgendaItem = (item: import('../src/agenda/types.js').AgendaItem) => {
   const subject = item.subject ?? t('agenda.untitled');
   const start = item.start ? new Date(item.start).toLocaleString() : t('agenda.unknownTime');
@@ -385,8 +480,11 @@ const handleAgendaRequest = async (request: ChannelRequest) => {
   const preferred = await resolvePreferredLanguage(request, language);
   const userText = remainder || request.text || '';
   const englishText = await translateToEnglish(userText, preferred);
-  const range = parseAgendaRange(englishText);
-  const subjectQuery = remainder || range.remainder;
+  const nlu = await getNluService()?.parse(englishText, new Date(), systemTimeZone);
+  const fallbackRange = parseAgendaRange(englishText);
+  const nluRange = resolveDateRangeFromNlu(nlu);
+  const range = nluRange ?? { start: fallbackRange.start, end: fallbackRange.end };
+  const subjectQuery = nlu?.subject ?? fallbackRange.remainder;
   const agendaService = getAgendaService();
   let agenda;
   try {
@@ -586,16 +684,19 @@ const router = new TeamsCommandRouter({
     const { language } = extractLanguageToken(request.text ?? '');
     const preferred = await resolvePreferredLanguage(request, language);
     const englishText = await translateToEnglish(request.text ?? '', preferred);
-    if (isAgendaIntent(englishText)) {
+    const nlu = await getNluService()?.parse(englishText, new Date(), systemTimeZone);
+    const intent = nlu?.intent ?? 'unknown';
+
+    if (intent === 'agenda' || isAgendaIntent(englishText)) {
       return handleAgendaRequest(request);
     }
-    if (isHowIntent(englishText)) {
+    if (intent === 'how' || isHowIntent(englishText)) {
       return { text: await translateOutgoing(t('howItWorks'), preferred) };
     }
-    if (isHelpIntent(englishText)) {
+    if (intent === 'help' || isHelpIntent(englishText)) {
       return { text: await translateOutgoing(buildHelpText(), preferred) };
     }
-    if (isContributeIntent(englishText)) {
+    if (intent === 'contribute' || isContributeIntent(englishText)) {
       return {
         text: await translateOutgoing(
           t('contribute', { repoUrl: 'https://github.com/PlainConceptsGC/teams-meetinglens' }),
@@ -603,16 +704,66 @@ const router = new TeamsCommandRouter({
         )
       };
     }
-    const transcript = await buildTranscript();
-    if (!transcript.raw) {
-      return {
-        text: await translateOutgoing(t('transcript.notConfigured'), preferred)
-      };
+
+    if (intent === 'summary') {
+      const store = selectionStore.get(request.conversationId);
+      const selected = store?.items?.[0]?.agendaItem;
+      const meeting = selected ?? (await findMeetingFromNlu(englishText, nlu, true));
+      if (!meeting) {
+        return { text: await translateOutgoing(t('meeting.notFound'), preferred) };
+      }
+      const { onlineMeetingService, transcriptService } = getMeetingTranscriptService();
+      let transcript;
+      try {
+        const transcriptLookup = new MeetingTranscriptService({
+          onlineMeetingService,
+          transcriptService
+        });
+        transcript = await transcriptLookup.getTranscriptForAgendaItem(meeting);
+      } catch {
+        return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
+      }
+      const client = buildLlmClient();
+      const summarizer = new SummarizationService({ client });
+      const result = await summarizer.summarize(transcript, { language: 'en' });
+      return { text: await translateOutgoing(result.summary, preferred) };
     }
-    const client = buildLlmClient();
-    const qa = new QaService({ client });
-    const result = await qa.answerQuestion(englishText, transcript, { language: 'en' });
-    return { text: await translateOutgoing(result.answer, preferred) };
+
+    if (intent === 'qa') {
+      const question = nlu?.question ?? englishText;
+      const store = selectionStore.get(request.conversationId);
+      const selected = store?.items?.[0]?.agendaItem;
+      const meeting = selected ?? (await findMeetingFromNlu(englishText, nlu, true));
+      if (meeting) {
+        const { onlineMeetingService, transcriptService } = getMeetingTranscriptService();
+        let transcript;
+        try {
+          const transcriptLookup = new MeetingTranscriptService({
+            onlineMeetingService,
+            transcriptService
+          });
+          transcript = await transcriptLookup.getTranscriptForAgendaItem(meeting);
+        } catch {
+          return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
+        }
+        const client = buildLlmClient();
+        const qa = new QaService({ client });
+        const result = await qa.answerQuestion(question, transcript, { language: 'en' });
+        return { text: await translateOutgoing(result.answer, preferred) };
+      }
+
+      const transcript = await buildTranscript();
+      if (transcript.raw) {
+        const client = buildLlmClient();
+        const qa = new QaService({ client });
+        const result = await qa.answerQuestion(question, transcript, { language: 'en' });
+        return { text: await translateOutgoing(result.answer, preferred) };
+      }
+
+      return { text: await translateOutgoing(t('meeting.notFound'), preferred) };
+    }
+
+    return { text: await translateOutgoing(t('fallback.unknown'), preferred) };
   }
 });
 

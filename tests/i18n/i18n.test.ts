@@ -45,7 +45,9 @@ const requiredKeys = [
   'selection.invalid',
   'selection.selected',
   'transcript.notConfigured',
-  'transcript.notAvailable'
+  'transcript.notAvailable',
+  'meeting.notFound',
+  'fallback.unknown'
 ];
 
 describe('i18n catalogs', () => {

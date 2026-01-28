@@ -10,6 +10,7 @@ teams-meetinglens is an enterprise-grade Microsoft Teams bot built for secure me
 - Meeting resolution
 - Transcript retrieval (when permitted)
 - Summarization and Q&A
+- Natural language requests in multiple languages
 
 ## High-level architecture
 - Channel layer (Teams bot)

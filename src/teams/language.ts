@@ -17,7 +17,11 @@ export const normalizeLanguage = (value?: string): LanguageCode | undefined => {
     return undefined;
   }
   const match = trimmed.match(/^[a-z]{2,3}(-[a-z]{2})?$/);
-  return match ? trimmed : undefined;
+  if (!match) {
+    return undefined;
+  }
+  const [primary] = trimmed.split('-');
+  return primary;
 };
 
 export const extractLanguageToken = (text: string): { language?: LanguageCode; remainder: string } => {
