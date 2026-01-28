@@ -6,6 +6,7 @@ export interface AgendaSearchRequest {
   includeCancelled?: boolean;
   top?: number;
   includeTranscriptAvailability?: boolean;
+  userId?: string;
 }
 
 export interface AgendaItem {
@@ -17,6 +18,7 @@ export interface AgendaItem {
   joinUrl?: string;
   onlineMeetingId?: string;
   transcriptAvailable?: boolean;
+  userId?: string;
 }
 
 export interface AgendaSearchResult {

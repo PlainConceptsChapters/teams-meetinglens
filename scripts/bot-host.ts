@@ -11,9 +11,11 @@ import {
 import { Attachment, Mention } from 'botframework-schema';
 import {
   AgendaService,
+  AuthService,
   AzureOpenAiClient,
   CalendarService,
   GraphClient,
+  InMemoryTokenCache,
   MeetingTranscriptService,
   OnlineMeetingService,
   QaService,
@@ -40,6 +42,11 @@ const endpointPath = process.env.BOT_ENDPOINT_PATH ?? '/api/messages';
 const botMentionText = process.env.BOT_MENTION_TEXT;
 const graphBaseUrl = process.env.GRAPH_BASE_URL ?? 'https://graph.microsoft.com/v1.0';
 const graphAccessToken = process.env.GRAPH_ACCESS_TOKEN;
+const graphAppScopesRaw = process.env.GRAPH_APP_SCOPES?.split(/\s+/).filter(Boolean);
+const graphAppScopes = graphAppScopesRaw && graphAppScopesRaw.length > 0
+  ? graphAppScopesRaw
+  : ['https://graph.microsoft.com/.default'];
+const useAppOnly = !graphAccessToken;
 const systemTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 const botFrameworkAuthentication = new ConfigurationBotFrameworkAuthentication({
@@ -62,10 +69,26 @@ const buildTranscript = async (): Promise<{ raw: string; cues: [] }> => {
 };
 
 const getGraphToken = async (): Promise<string> => {
-  if (!graphAccessToken) {
-    throw new Error('Missing GRAPH_ACCESS_TOKEN environment variable.');
+  if (graphAccessToken) {
+    return graphAccessToken;
   }
-  return graphAccessToken;
+  const tenantId = process.env.AZURE_TENANT_ID;
+  const clientId = process.env.AZURE_CLIENT_ID;
+  const clientSecret = process.env.AZURE_CLIENT_SECRET;
+  if (!tenantId || !clientId || !clientSecret) {
+    throw new Error('Missing GRAPH_ACCESS_TOKEN or Azure client credentials.');
+  }
+  const authService = new AuthService({
+    config: {
+      tenantId,
+      clientId,
+      clientSecret,
+      authorityHost: process.env.AUTHORITY_HOST
+    },
+    cache: new InMemoryTokenCache()
+  });
+  const token = await authService.acquireClientCredentialToken(graphAppScopes);
+  return token.token;
 };
 
 const buildGraphServices = () => {
@@ -157,15 +180,35 @@ const translateToEnglish = async (text: string, language: LanguageCode): Promise
   return restoreCommandTokens(translated, protectedText.tokens);
 };
 
+const getLanguageKey = (request: ChannelRequest) => {
+  const user = request.fromUserId || 'anonymous';
+  return `${request.conversationId}:${user}`;
+};
+
+const isLikelyEnglishText = (text?: string) => {
+  if (!text) {
+    return false;
+  }
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return false;
+  }
+  const asciiOnly = /^[\x00-\x7F]*$/.test(trimmed);
+  if (!asciiOnly) {
+    return false;
+  }
+  return trimmed.length <= 20 || /^[a-z0-9\s.,!?'"-]+$/i.test(trimmed);
+};
+
 const resolvePreferredLanguage = async (
   request: ChannelRequest,
   explicit?: LanguageCode
 ): Promise<LanguageCode> => {
   if (explicit) {
-    languageStore.set(request.conversationId, explicit);
+    languageStore.set(getLanguageKey(request), explicit);
     return explicit;
   }
-  const stored = languageStore.get(request.conversationId);
+  const stored = languageStore.get(getLanguageKey(request));
   if (stored) {
     return stored;
   }
@@ -177,7 +220,10 @@ const resolvePreferredLanguage = async (
   if (service && request.text) {
     try {
       const detected = normalizeLanguage(await service.detectLanguage(request.text)) ?? 'en';
-      languageStore.set(request.conversationId, detected);
+      if (detected !== 'en' && isLikelyEnglishText(request.text)) {
+        return 'en';
+      }
+      languageStore.set(getLanguageKey(request), detected);
       return detected;
     } catch {
       return 'en';
@@ -320,6 +366,10 @@ const formatDateRange = (range: { start: Date; end: Date }) => ({
 const parseAgendaRange = (text: string): { start: Date; end: Date; remainder: string } => {
   const now = new Date();
   const tokens = text.toLowerCase();
+  const explicit = parseExplicitDate(tokens);
+  if (explicit) {
+    return explicit;
+  }
   if (tokens.includes('yesterday') || tokens.includes('ayer') || tokens.includes('ieri')) {
     const start = new Date(now);
     start.setDate(start.getDate() - 1);
@@ -353,6 +403,112 @@ const parseAgendaRange = (text: string): { start: Date; end: Date; remainder: st
   const end = new Date(now);
   end.setDate(end.getDate() + 7);
   return { start, end, remainder: text.trim() };
+};
+
+const parseExplicitDate = (text: string): { start: Date; end: Date; remainder: string } | undefined => {
+  const monthNames: Record<string, number> = {
+    jan: 0,
+    january: 0,
+    feb: 1,
+    february: 1,
+    mar: 2,
+    march: 2,
+    apr: 3,
+    april: 3,
+    may: 4,
+    jun: 5,
+    june: 5,
+    jul: 6,
+    july: 6,
+    aug: 7,
+    august: 7,
+    sep: 8,
+    sept: 8,
+    september: 8,
+    oct: 9,
+    october: 9,
+    nov: 10,
+    november: 10,
+    dec: 11,
+    december: 11
+  };
+
+  const isoMatch = text.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  if (isoMatch) {
+    const year = Number(isoMatch[1]);
+    const month = Number(isoMatch[2]) - 1;
+    const day = Number(isoMatch[3]);
+    const date = new Date(year, month, day);
+    if (!Number.isNaN(date.getTime())) {
+      return buildExplicitRange(date, isoMatch[0], text);
+    }
+  }
+
+  const namedMatch =
+    text.match(/\b(\d{1,2})[\/\-\s]+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)[\/\-\s]+(\d{4})\b/i) ||
+    text.match(/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,)?\s+(\d{4})\b/i);
+
+  if (namedMatch) {
+    const [full, part1, part2, part3] = namedMatch;
+    const isMonthFirst = !!monthNames[part1.toLowerCase()];
+    const day = Number(isMonthFirst ? part2 : part1);
+    const monthName = (isMonthFirst ? part1 : part2).toLowerCase();
+    const year = Number(part3);
+    const month = monthNames[monthName];
+    const date = new Date(year, month, day);
+    if (!Number.isNaN(date.getTime())) {
+      return buildExplicitRange(date, full, text);
+    }
+  }
+
+  const numericMatch = text.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b/);
+  if (numericMatch) {
+    const [full, part1, part2, part3] = numericMatch;
+    const first = Number(part1);
+    const second = Number(part2);
+    const year = Number(part3);
+    const isDayFirst = first > 12;
+    const day = isDayFirst ? first : second;
+    const month = (isDayFirst ? second : first) - 1;
+    const date = new Date(year, month, day);
+    if (!Number.isNaN(date.getTime())) {
+      return buildExplicitRange(date, full, text);
+    }
+  }
+
+  return undefined;
+};
+
+const buildExplicitRange = (date: Date, matched: string, text: string) => {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return {
+    start,
+    end,
+    remainder: text.replace(matched, '').trim()
+  };
+};
+
+const formatRangeLabel = (range: { start: Date; end: Date }) => {
+  const start = range.start;
+  const endInclusive = new Date(range.end.getTime() - 1);
+  const end = endInclusive < start ? start : endInclusive;
+  const sameDay =
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth() &&
+    start.getDate() === end.getDate();
+  const formatDate = (value: Date) =>
+    value.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  if (sameDay) {
+    return formatDate(start);
+  }
+  return `${formatDate(start)} to ${formatDate(end)}`;
 };
 
 const resolveDateRangeFromNlu = (nlu?: NluResult): { start: Date; end: Date } | undefined => {
@@ -410,7 +566,8 @@ const findClosestMeetingByTime = (
 const findMeetingFromNlu = async (
   englishText: string,
   nlu: NluResult | undefined,
-  requireTranscript: boolean
+  requireTranscript: boolean,
+  userId?: string
 ): Promise<import('../src/agenda/types.js').AgendaItem | undefined> => {
   const fallbackRange = parseAgendaRange(englishText);
   const nluRange = resolveDateRangeFromNlu(nlu);
@@ -421,7 +578,8 @@ const findMeetingFromNlu = async (
     ...formatDateRange(range),
     subjectContains: subjectQuery || undefined,
     includeTranscriptAvailability: true,
-    top: 10
+    top: 10,
+    userId
   });
   let items = agenda.items;
   if (requireTranscript) {
@@ -432,6 +590,22 @@ const findMeetingFromNlu = async (
   }
   const targetMinutes = parseTimeToMinutes(nlu?.time);
   return findClosestMeetingByTime(items, targetMinutes);
+};
+
+const getTranscriptFromMeetingContext = async (request: ChannelRequest) => {
+  if (!request.meetingId && !request.meetingJoinUrl) {
+    return undefined;
+  }
+  const { onlineMeetingService, transcriptService } = getMeetingTranscriptService();
+  const transcriptLookup = new MeetingTranscriptService({
+    onlineMeetingService,
+    transcriptService
+  });
+  return transcriptLookup.getTranscriptForMeetingContext({
+    meetingId: request.meetingId,
+    joinUrl: request.meetingJoinUrl,
+    userId: useAppOnly ? request.fromUserId || undefined : undefined
+  });
 };
 
 const formatAgendaItem = (item: import('../src/agenda/types.js').AgendaItem) => {
@@ -464,6 +638,17 @@ const isHelpIntent = (text: string): boolean => {
   return lower.includes('help') || lower.includes('ajutor') || lower.includes('ayuda');
 };
 
+const isTodayIntent = (text: string): boolean => {
+  const lower = text.toLowerCase();
+  return (
+    lower.includes('today is') ||
+    lower.includes('what day is it') ||
+    lower.includes('what is the date') ||
+    lower.trim() === 'today' ||
+    lower.trim() === 'date'
+  );
+};
+
 const isContributeIntent = (text: string): boolean => {
   const lower = text.toLowerCase();
   return (
@@ -486,13 +671,15 @@ const handleAgendaRequest = async (request: ChannelRequest) => {
   const range = nluRange ?? { start: fallbackRange.start, end: fallbackRange.end };
   const subjectQuery = nlu?.subject ?? fallbackRange.remainder;
   const agendaService = getAgendaService();
+  const graphUserId = useAppOnly ? request.fromUserId || undefined : undefined;
   let agenda;
   try {
     agenda = await agendaService.searchAgenda({
       ...formatDateRange(range),
       subjectContains: subjectQuery || undefined,
       includeTranscriptAvailability: true,
-      top: 10
+      top: 10,
+      userId: graphUserId
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Agenda search failed.';
@@ -502,7 +689,7 @@ const handleAgendaRequest = async (request: ChannelRequest) => {
   }
   if (!agenda.items.length) {
     return {
-      text: await translateOutgoing(t('agenda.none'), preferred)
+      text: await translateOutgoing(t('agenda.none', { range: formatRangeLabel(range) }), preferred)
     };
   }
   const filtered = agenda.items.filter((item) => item.transcriptAvailable);
@@ -569,7 +756,7 @@ const router = new TeamsCommandRouter({
           const preferred = await resolvePreferredLanguage(request);
           return { text: await translateOutgoing(t('languagePrompt'), preferred) };
         }
-        languageStore.set(request.conversationId, language);
+        languageStore.set(getLanguageKey(request), language);
         const languageLabel = languageNames[language] ?? language;
         return { text: await translateOutgoing(t('languageSet', { languageName: languageLabel }), language) };
       }
@@ -607,6 +794,17 @@ const router = new TeamsCommandRouter({
         const preferred = await resolvePreferredLanguage(request, language);
         const store = selectionStore.get(request.conversationId);
         if (!store || !store.items.length) {
+          try {
+            const transcript = await getTranscriptFromMeetingContext(request);
+            if (transcript?.raw) {
+              const client = buildLlmClient();
+              const summarizer = new SummarizationService({ client });
+              const result = await summarizer.summarize(transcript, { language: 'en' });
+              return { text: await translateOutgoing(result.summary, preferred) };
+            }
+          } catch {
+            return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
+          }
           const transcript = await buildTranscript();
           if (!transcript.raw) {
             return {
@@ -648,6 +846,17 @@ const router = new TeamsCommandRouter({
         const englishQuestion = await translateToEnglish(question, preferred);
         const store = selectionStore.get(request.conversationId);
         if (!store || !store.items.length) {
+          try {
+            const transcript = await getTranscriptFromMeetingContext(request);
+            if (transcript?.raw) {
+              const client = buildLlmClient();
+              const qa = new QaService({ client });
+              const result = await qa.answerQuestion(englishQuestion, transcript, { language: 'en' });
+              return { text: await translateOutgoing(result.answer, preferred) };
+            }
+          } catch {
+            return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
+          }
           const transcript = await buildTranscript();
           if (!transcript.raw) {
             return {
@@ -696,6 +905,16 @@ const router = new TeamsCommandRouter({
     if (intent === 'help' || isHelpIntent(englishText)) {
       return { text: await translateOutgoing(buildHelpText(), preferred) };
     }
+    if (isTodayIntent(englishText)) {
+      const today = new Date();
+      const formatted = today.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      return { text: await translateOutgoing(t('date.today', { date: formatted }), preferred) };
+    }
     if (intent === 'contribute' || isContributeIntent(englishText)) {
       return {
         text: await translateOutgoing(
@@ -708,7 +927,20 @@ const router = new TeamsCommandRouter({
     if (intent === 'summary') {
       const store = selectionStore.get(request.conversationId);
       const selected = store?.items?.[0]?.agendaItem;
-      const meeting = selected ?? (await findMeetingFromNlu(englishText, nlu, true));
+      const graphUserId = useAppOnly ? request.fromUserId || undefined : undefined;
+      try {
+        const transcriptFromContext = await getTranscriptFromMeetingContext(request);
+        if (transcriptFromContext?.raw) {
+          const client = buildLlmClient();
+          const summarizer = new SummarizationService({ client });
+          const result = await summarizer.summarize(transcriptFromContext, { language: 'en' });
+          return { text: await translateOutgoing(result.summary, preferred) };
+        }
+      } catch {
+        return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
+      }
+
+      const meeting = selected ?? (await findMeetingFromNlu(englishText, nlu, true, graphUserId));
       if (!meeting) {
         return { text: await translateOutgoing(t('meeting.notFound'), preferred) };
       }
@@ -733,7 +965,20 @@ const router = new TeamsCommandRouter({
       const question = nlu?.question ?? englishText;
       const store = selectionStore.get(request.conversationId);
       const selected = store?.items?.[0]?.agendaItem;
-      const meeting = selected ?? (await findMeetingFromNlu(englishText, nlu, true));
+      const graphUserId = useAppOnly ? request.fromUserId || undefined : undefined;
+      try {
+        const transcriptFromContext = await getTranscriptFromMeetingContext(request);
+        if (transcriptFromContext?.raw) {
+          const client = buildLlmClient();
+          const qa = new QaService({ client });
+          const result = await qa.answerQuestion(question, transcriptFromContext, { language: 'en' });
+          return { text: await translateOutgoing(result.answer, preferred) };
+        }
+      } catch {
+        return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
+      }
+
+      const meeting = selected ?? (await findMeetingFromNlu(englishText, nlu, true, graphUserId));
       if (meeting) {
         const { onlineMeetingService, transcriptService } = getMeetingTranscriptService();
         let transcript;
@@ -777,14 +1022,25 @@ class TeamsBot extends TeamsActivityHandler {
       const value = activity.value as { command?: string; selection?: string } | undefined;
       const commandText =
         value?.command === 'select' && value.selection ? `/select ${value.selection}` : undefined;
-      const request: ChannelRequest = {
+  const fromAadObjectId = (activity.from as { aadObjectId?: string } | undefined)?.aadObjectId;
+  const request: ChannelRequest = {
         channelId: activity.channelId ?? 'msteams',
         conversationId: activity.conversation?.id ?? '',
         messageId: activity.id ?? '',
-        fromUserId: activity.from?.id ?? '',
+        fromUserId: fromAadObjectId ?? activity.from?.id ?? '',
         fromUserName: activity.from?.name ?? undefined,
         tenantId: activity.conversation?.tenantId ?? activity.channelData?.tenant?.id,
         text: commandText ?? activity.text ?? '',
+        meetingId:
+          (activity.channelData as { meeting?: { id?: string; meetingId?: string } } | undefined)?.meeting?.id ??
+          (activity.channelData as { meeting?: { id?: string; meetingId?: string } } | undefined)?.meeting?.meetingId ??
+          (activity.channelData as { meetingId?: string } | undefined)?.meetingId,
+        meetingJoinUrl:
+          (activity.channelData as { meeting?: { joinUrl?: string; joinWebUrl?: string } } | undefined)?.meeting
+            ?.joinUrl ??
+          (activity.channelData as { meeting?: { joinUrl?: string; joinWebUrl?: string } } | undefined)?.meeting
+            ?.joinWebUrl ??
+          (activity.channelData as { joinUrl?: string } | undefined)?.joinUrl,
         attachments: (activity.attachments as ActivityAttachment[] | undefined)?.map((attachment) => ({
           name: attachment.name,
           contentType: attachment.contentType,

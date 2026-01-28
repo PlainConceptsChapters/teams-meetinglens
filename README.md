@@ -148,6 +148,9 @@ Azure OpenAI variables (for summarization/Q&A):
 - `AZURE_OPENAI_DEPLOYMENT`
 - `AZURE_OPENAI_API_VERSION`
 
+Graph app-only fallback:
+- If `GRAPH_ACCESS_TOKEN` is not set, the bot uses client credentials with `GRAPH_APP_SCOPES` (default `https://graph.microsoft.com/.default`). Ensure application permissions are granted and admin consented.
+
 Testing scope reminder:
 - Unit tests are required for modular components (Graph wrappers, transcript processing, summarization, caching)
 - End-to-end Teams UI or Bot Framework tests are out of scope initially

@@ -11,13 +11,14 @@ export interface AgendaServiceOptions {
   maxTranscriptChecks?: number;
 }
 
-const mapEventToItem = (event: CalendarEvent): AgendaItem => ({
+const mapEventToItem = (event: CalendarEvent, userId?: string): AgendaItem => ({
   eventId: event.id,
   subject: event.subject,
   start: event.start?.dateTime,
   end: event.end?.dateTime,
   organizerEmail: event.organizer?.emailAddress?.address,
-  joinUrl: event.onlineMeeting?.joinUrl
+  joinUrl: event.onlineMeeting?.joinUrl,
+  userId
 });
 
 const mapWithConcurrency = async <T, R>(
@@ -59,10 +60,11 @@ export class AgendaService {
       endDateTime: request.endDateTime,
       subjectContains: request.subjectContains,
       organizerEmail: request.organizerEmail,
-      includeCancelled: request.includeCancelled
+      includeCancelled: request.includeCancelled,
+      userId: request.userId
     });
 
-    const items = events.map(mapEventToItem);
+    const items = events.map((event) => mapEventToItem(event, request.userId));
     const limitedItems = typeof request.top === 'number' ? items.slice(0, request.top) : items;
 
     if (!request.includeTranscriptAvailability) {
@@ -87,14 +89,14 @@ export class AgendaService {
     try {
       let meetingId = item.onlineMeetingId;
       if (!meetingId && item.joinUrl) {
-        meetingId = await this.onlineMeetingService.findOnlineMeetingIdByJoinUrl(item.joinUrl);
+        meetingId = await this.onlineMeetingService.findOnlineMeetingIdByJoinUrl(item.joinUrl, item.userId);
       }
 
       if (!meetingId) {
         return { ...item, transcriptAvailable: false };
       }
 
-      const transcripts = await this.transcriptService.listTranscripts(meetingId);
+      const transcripts = await this.transcriptService.listTranscripts(meetingId, item.userId);
       return { ...item, onlineMeetingId: meetingId, transcriptAvailable: transcripts.length > 0 };
     } catch {
       return { ...item, transcriptAvailable: false };

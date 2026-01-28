@@ -23,12 +23,13 @@ export class OnlineMeetingService {
     this.graphClient = options.graphClient;
   }
 
-  async findOnlineMeetingIdByJoinUrl(joinUrl: string): Promise<string | undefined> {
+  async findOnlineMeetingIdByJoinUrl(joinUrl: string, userId?: string): Promise<string | undefined> {
     if (!joinUrl) {
       throw new InvalidRequestError('Join URL is required to resolve online meeting id.');
     }
     const filter = `JoinWebUrl eq '${escapeOdataString(joinUrl)}'`;
-    const response = await this.graphClient.get<OnlineMeetingListResponse>('/me/onlineMeetings', {
+    const path = userId ? `/users/${userId}/onlineMeetings` : '/me/onlineMeetings';
+    const response = await this.graphClient.get<OnlineMeetingListResponse>(path, {
       $filter: filter
     });
     return response.value?.[0]?.id;

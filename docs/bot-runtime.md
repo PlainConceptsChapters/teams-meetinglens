@@ -17,6 +17,9 @@ This host receives Teams activities via Bot Framework and routes them to the `Te
 - `BOT_TRANSCRIPT_TEXT` (optional, inline transcript for dev)
 - `BOT_TRANSCRIPT_FILE` (optional, path to transcript text file)
 - `GRAPH_ACCESS_TOKEN` (optional, delegated Graph token for agenda search in dev)
+- `GRAPH_APP_SCOPES` (optional, app-only scopes; default: `https://graph.microsoft.com/.default`)
+
+If `GRAPH_ACCESS_TOKEN` is not set, the bot uses client credentials with `GRAPH_APP_SCOPES`.
 
 ## Run locally
 ```text

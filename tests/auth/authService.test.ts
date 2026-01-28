@@ -60,4 +60,29 @@ describe('AuthService', () => {
       'invalid_grant'
     );
   });
+
+  it('acquires and caches client credential tokens', async () => {
+    let callCount = 0;
+    const fetcher = createFetcher(async () => {
+      callCount += 1;
+      return createJsonResponse({ access_token: 'app-token', expires_in: 3600 });
+    });
+
+    const authService = new AuthService({
+      config: {
+        tenantId: 'tenant',
+        clientId: 'client',
+        clientSecret: 'secret'
+      },
+      cache: new InMemoryTokenCache(),
+      fetcher
+    });
+
+    const token1 = await authService.acquireClientCredentialToken(['https://graph.microsoft.com/.default']);
+    const token2 = await authService.acquireClientCredentialToken(['https://graph.microsoft.com/.default']);
+
+    expect(token1.token).toBe('app-token');
+    expect(token2.token).toBe('app-token');
+    expect(callCount).toBe(1);
+  });
 });

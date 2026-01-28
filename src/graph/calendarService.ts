@@ -31,10 +31,12 @@ export class CalendarService {
     let page = 0;
     let nextLink: string | undefined;
 
+    const basePath = options.userId ? `/users/${options.userId}/calendarView` : '/me/calendarView';
+
     do {
       page += 1;
       const response = await this.graphClient.get<CalendarViewResponse>(
-        nextLink ? nextLink : '/me/calendarView',
+        nextLink ? nextLink : basePath,
         nextLink ? undefined : query,
         { Prefer: 'outlook.timezone="UTC"' }
       );

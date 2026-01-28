@@ -24,6 +24,8 @@ export interface ChannelRequest {
   value?: unknown;
   timestamp?: string;
   locale?: string;
+  meetingId?: string;
+  meetingJoinUrl?: string;
 }
 
 export interface ChannelResponse {

@@ -18,25 +18,30 @@ export class TranscriptService {
     this.graphClient = options.graphClient;
   }
 
-  async listTranscripts(meetingId: string): Promise<TranscriptMetadata[]> {
+  async listTranscripts(meetingId: string, userId?: string): Promise<TranscriptMetadata[]> {
     if (!meetingId) {
       throw new NotFoundError('Meeting id is required to list transcripts.');
     }
-    const response = await this.graphClient.get<TranscriptListResponse>(
-      `/me/onlineMeetings/${meetingId}/transcripts`
-    );
+    const path = userId
+      ? `/users/${userId}/onlineMeetings/${meetingId}/transcripts`
+      : `/me/onlineMeetings/${meetingId}/transcripts`;
+    const response = await this.graphClient.get<TranscriptListResponse>(path);
     return response.value ?? [];
   }
 
-  async getLatestTranscript(meetingId: string): Promise<TranscriptMetadata> {
-    const transcripts = await this.listTranscripts(meetingId);
+  async getLatestTranscript(meetingId: string, userId?: string): Promise<TranscriptMetadata> {
+    const transcripts = await this.listTranscripts(meetingId, userId);
     if (!transcripts.length) {
       throw new NotFoundError('No transcripts available for this meeting.');
     }
     return transcripts[0];
   }
 
-  async getTranscriptContent(meetingId: string, transcriptId: string): Promise<TranscriptContent> {
+  async getTranscriptContent(
+    meetingId: string,
+    transcriptId: string,
+    userId?: string
+  ): Promise<TranscriptContent> {
     if (!meetingId || !transcriptId) {
       throw new NotFoundError('Meeting id and transcript id are required.');
     }
@@ -49,8 +54,11 @@ export class TranscriptService {
     let lastError: unknown;
     for (const attempt of attempts) {
       try {
+        const path = userId
+          ? `/users/${userId}/onlineMeetings/${meetingId}/transcripts/${transcriptId}/content${attempt.formatQuery}`
+          : `/me/onlineMeetings/${meetingId}/transcripts/${transcriptId}/content${attempt.formatQuery}`;
         const raw = await this.graphClient.requestText(
-          `/me/onlineMeetings/${meetingId}/transcripts/${transcriptId}/content${attempt.formatQuery}`
+          path
         );
         return { raw, cues: parseWebVtt(raw) };
       } catch (error) {

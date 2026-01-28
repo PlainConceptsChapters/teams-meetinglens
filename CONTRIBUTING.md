@@ -72,6 +72,7 @@ Steps:
      - `BOT_MENTION_TEXT`: bot mention text to strip (e.g., `@meetinglens`).
      - `GRAPH_ACCESS_TOKEN`: delegated Graph access token for agenda search in local dev.
      - Get a token with: `npm run auth:graph-token`
+     - If you do not set `GRAPH_ACCESS_TOKEN`, the bot will use **client credentials** with `GRAPH_APP_SCOPES` (default: `https://graph.microsoft.com/.default`). Ensure application permissions are granted and admin consented.
 2. Configure a dev tunnel to expose `http://localhost:3978/api/messages`.
 3. In Azure Bot registration, set the messaging endpoint to your tunnel URL + `/api/messages`.
    - Azure portal -> your Azure Bot resource -> Configuration -> Messaging endpoint.

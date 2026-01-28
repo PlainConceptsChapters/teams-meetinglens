@@ -15,6 +15,7 @@ export interface CalendarViewOptions {
   organizerEmail?: string;
   includeCancelled?: boolean;
   top?: number;
+  userId?: string;
 }
 
 export interface MeetingIdentity {

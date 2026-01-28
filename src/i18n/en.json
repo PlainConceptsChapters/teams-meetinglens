@@ -21,7 +21,7 @@
   "agenda": {
     "title": "Your upcoming meetings",
     "intro": "Here are your meetings.",
-    "none": "No meetings found for that range.",
+    "none": "No meetings found for that range ({range}).",
     "cannotAccess": "I couldn't access your agenda yet. {message}",
     "transcriptAvailable": "Transcript available",
     "noTranscript": "No transcript",
@@ -43,5 +43,8 @@
   },
   "fallback": {
     "unknown": "I can help with your agenda, meeting summaries, or questions. Try: \"show my meetings from last Monday\"."
+  },
+  "date": {
+    "today": "Today is {date}."
   }
 }
