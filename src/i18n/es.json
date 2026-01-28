@@ -15,7 +15,7 @@
     "examples": "- revisa mi agenda\n- /agenda hoy diseno\n- /select 2\n- /summary es\n- /qa ro que decidimos?\n- /contribute"
   },
   "howItWorks": "Uso tu calendario para listar reuniones y buscar transcripciones. Si una reunion tiene transcripcion, puedo resumirla o responder preguntas. Si no hay transcripcion, te lo dire.",
-  "contribute": "Para contribuir, visita el repositorio de Plain Concepts: {repoUrl}"
+  "contribute": "Para contribuir, visita el repositorio de Plain Concepts: {repoUrl}",
   "languageSet": "Idioma establecido a {languageName}.",
   "languagePrompt": "Por favor especifica un idioma: en, es, o ro.",
   "agenda": {

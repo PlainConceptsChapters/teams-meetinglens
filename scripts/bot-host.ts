@@ -222,6 +222,7 @@ const buildHelpText = (language: SupportedLanguage): string => {
     t(language, 'help.qa'),
     t(language, 'help.language'),
     t(language, 'help.how'),
+    t(language, 'help.contribute'),
     t(language, 'help.help'),
     '',
     t(language, 'help.examplesTitle'),
@@ -302,6 +303,17 @@ const isHelpIntent = (text: string): boolean => {
   return lower.includes('help') || lower.includes('ajutor') || lower.includes('ayuda');
 };
 
+const isContributeIntent = (text: string): boolean => {
+  const lower = text.toLowerCase();
+  return (
+    lower.includes('contribute') ||
+    lower.includes('contributing') ||
+    lower.includes('improve') ||
+    lower.includes('github') ||
+    lower.includes('repo')
+  );
+};
+
 const handleAgendaRequest = async (request: ChannelRequest) => {
   const { language, remainder } = extractLanguageToken(request.text ?? '');
   const preferred = resolveLanguage(request, language, languageStore);
@@ -358,6 +370,13 @@ const router = new TeamsCommandRouter({
       handler: async (request) => {
         const language = resolveLanguage(request, undefined, languageStore);
         return { text: t(language, 'howItWorks') };
+      }
+    },
+    {
+      command: 'contribute',
+      handler: async (request) => {
+        const language = resolveLanguage(request, undefined, languageStore);
+        return { text: t(language, 'contribute', { repoUrl: 'https://github.com/PlainConceptsGC/teams-meetinglens' }) };
       }
     },
     {
@@ -484,6 +503,10 @@ const router = new TeamsCommandRouter({
     if (isHelpIntent(request.text ?? '')) {
       const language = resolveLanguage(request, undefined, languageStore);
       return { text: buildHelpText(language) };
+    }
+    if (isContributeIntent(request.text ?? '')) {
+      const language = resolveLanguage(request, undefined, languageStore);
+      return { text: t(language, 'contribute', { repoUrl: 'https://github.com/PlainConceptsGC/teams-meetinglens' }) };
     }
     const { language } = extractLanguageToken(request.text ?? '');
     const preferred = resolveLanguage(request, language, languageStore);

@@ -15,7 +15,7 @@
     "examples": "- arata agenda mea\n- /agenda azi design\n- /select 2\n- /summary ro\n- /qa es ce am decis?\n- /contribute"
   },
   "howItWorks": "Folosesc calendarul tau pentru a lista intalniri si caut transcrieri. Daca exista transcriere, pot rezuma sau raspunde la intrebari. Daca nu exista transcriere, iti spun.",
-  "contribute": "Pentru a contribui, viziteaza repo-ul Plain Concepts: {repoUrl}"
+  "contribute": "Pentru a contribui, viziteaza repo-ul Plain Concepts: {repoUrl}",
   "languageSet": "Limba setata la {languageName}.",
   "languagePrompt": "Te rog specifica o limba: en, es, sau ro.",
   "agenda": {

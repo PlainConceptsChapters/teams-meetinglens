@@ -15,7 +15,7 @@
     "examples": "- check my agenda\n- /agenda today design\n- /select 2\n- /summary es\n- /qa ro what did we decide?\n- /contribute"
   },
   "howItWorks": "I use your calendar to list meetings, then look for meeting transcripts. If a meeting has a transcript, I can summarize it or answer questions. If no transcript exists, I will tell you.",
-  "contribute": "To contribute, visit the Plain Concepts GitHub repo: {repoUrl}"
+  "contribute": "To contribute, visit the Plain Concepts GitHub repo: {repoUrl}",
   "languageSet": "Language set to {languageName}.",
   "languagePrompt": "Please specify a language: en, es, or ro.",
   "agenda": {
