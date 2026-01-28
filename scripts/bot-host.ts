@@ -20,12 +20,7 @@ import {
   SummarizationService,
   TranscriptService
 } from '../src/index.js';
-import {
-  SupportedLanguage,
-  extractLanguageToken,
-  languageNames,
-  resolveLanguage
-} from '../src/teams/language.js';
+import { LanguageCode, extractLanguageToken, languageNames, resolveLanguage } from '../src/teams/language.js';
 import { TeamsCommandRouter } from '../src/teams/router.js';
 import { ChannelRequest } from '../src/teams/types.js';
 
@@ -303,6 +298,34 @@ const isHelpIntent = (text: string): boolean => {
   return lower.includes('help') || lower.includes('ajutor') || lower.includes('ayuda');
 };
 
+const inferLanguageFromText = (text: string): SupportedLanguage | undefined => {
+  const lower = text.toLowerCase();
+  if (
+    lower.includes('ayuda') ||
+    lower.includes('agenda') ||
+    lower.includes('reuniones') ||
+    lower.includes('resumen') ||
+    lower.includes('pregunta') ||
+    lower.includes('como')
+  ) {
+    return 'es';
+  }
+  if (
+    lower.includes('ajutor') ||
+    lower.includes('agenda mea') ||
+    lower.includes('intalniri') ||
+    lower.includes('rezumat') ||
+    lower.includes('intrebare') ||
+    lower.includes('cum')
+  ) {
+    return 'ro';
+  }
+  if (lower.includes('help') || lower.includes('agenda') || lower.includes('summary') || lower.includes('question')) {
+    return 'en';
+  }
+  return undefined;
+};
+
 const isContributeIntent = (text: string): boolean => {
   const lower = text.toLowerCase();
   return (
@@ -497,15 +520,15 @@ const router = new TeamsCommandRouter({
       return handleAgendaRequest(request);
     }
     if (isHowIntent(request.text ?? '')) {
-      const language = resolveLanguage(request, undefined, languageStore);
+      const language = resolveLanguage(request, inferLanguageFromText(request.text ?? ''), languageStore);
       return { text: t(language, 'howItWorks') };
     }
     if (isHelpIntent(request.text ?? '')) {
-      const language = resolveLanguage(request, undefined, languageStore);
+      const language = resolveLanguage(request, inferLanguageFromText(request.text ?? ''), languageStore);
       return { text: buildHelpText(language) };
     }
     if (isContributeIntent(request.text ?? '')) {
-      const language = resolveLanguage(request, undefined, languageStore);
+      const language = resolveLanguage(request, inferLanguageFromText(request.text ?? ''), languageStore);
       return { text: t(language, 'contribute', { repoUrl: 'https://github.com/PlainConceptsGC/teams-meetinglens' }) };
     }
     const { language } = extractLanguageToken(request.text ?? '');

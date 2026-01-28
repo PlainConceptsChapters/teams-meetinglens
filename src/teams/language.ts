@@ -1,37 +1,32 @@
 import { ChannelRequest } from './types.js';
 
-export type SupportedLanguage = 'en' | 'es' | 'ro';
+export type LanguageCode = string;
 
-export const languageNames: Record<SupportedLanguage, string> = {
+export const languageNames: Record<string, string> = {
   en: 'English',
   es: 'Spanish',
   ro: 'Romanian'
 };
 
-export const normalizeLanguage = (value?: string): SupportedLanguage | undefined => {
+export const normalizeLanguage = (value?: string): LanguageCode | undefined => {
   if (!value) {
     return undefined;
   }
   const trimmed = value.trim().toLowerCase();
-  if (trimmed.startsWith('es')) {
-    return 'es';
+  if (!trimmed) {
+    return undefined;
   }
-  if (trimmed.startsWith('ro')) {
-    return 'ro';
-  }
-  if (trimmed.startsWith('en')) {
-    return 'en';
-  }
-  return undefined;
+  const match = trimmed.match(/^[a-z]{2,3}(-[a-z]{2})?$/);
+  return match ? trimmed : undefined;
 };
 
-export const extractLanguageToken = (text: string): { language?: SupportedLanguage; remainder: string } => {
+export const extractLanguageToken = (text: string): { language?: LanguageCode; remainder: string } => {
   const tokens = text.trim().split(/\s+/).filter(Boolean);
   if (!tokens.length) {
     return { remainder: '' };
   }
   const first = tokens[0];
-  const langMatch = first.match(/^(?:lang[:=])?(en|es|ro)$/i);
+  const langMatch = first.match(/^(?:lang[:=])?([a-z]{2,3}(?:-[a-z]{2})?)$/i);
   if (langMatch) {
     const language = normalizeLanguage(langMatch[1]);
     return { language, remainder: tokens.slice(1).join(' ').trim() };
@@ -41,9 +36,9 @@ export const extractLanguageToken = (text: string): { language?: SupportedLangua
 
 export const resolveLanguage = (
   request: ChannelRequest,
-  explicit?: SupportedLanguage,
-  preferenceStore?: Map<string, SupportedLanguage>
-): SupportedLanguage => {
+  explicit?: LanguageCode,
+  preferenceStore?: Map<string, LanguageCode>
+): LanguageCode => {
   if (explicit) {
     if (preferenceStore) {
       preferenceStore.set(request.conversationId, explicit);
