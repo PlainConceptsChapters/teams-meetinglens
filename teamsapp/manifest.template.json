@@ -25,12 +25,20 @@
   "bots": [
     {
       "botId": "${TEAMS_BOT_ID}",
-      "scopes": ["personal"],
+      "scopes": [
+        "personal",
+        "team"
+      ],
       "supportsFiles": false,
       "isNotificationOnly": false
     }
   ],
-  "permissions": ["identity"],
+  "permissions": [
+    "identity"
+  ],
+  "validDomains": [
+    "token.botframework.com"
+  ],
   "webApplicationInfo": {
     "id": "${TEAMS_BOT_ID}",
     "resource": "${TEAMS_APP_RESOURCE}"

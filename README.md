@@ -59,9 +59,6 @@ LOG_LEVEL=
 - Long-term transcript storage or indexing
 - Human-curated localization beyond English (responses are auto-translated)
 
-## Roadmap
-See `BACKLOG.md` for milestones, epics, and status. The backlog is the single source of truth.
-
 ## Contribution guidelines
 - Keep the architecture modular and testable
 - Update documentation when behavior changes
@@ -175,7 +172,6 @@ Please report security issues privately following the guidance in `AGENTS.md`.
 See `LICENSE`.
 
 ## Related documentation
-- `BACKLOG.md`
 - `AGENTS.md`
 - `docs/observability.md`
 - `docs/security.md`

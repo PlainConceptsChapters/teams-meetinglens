@@ -1,21 +1,22 @@
 {
   "help": {
     "title": "What I can do:",
-    "overview": "- Show your agenda and highlight meetings with transcripts\n- Let you pick a meeting and summarize it\n- Answer questions about a meeting transcript\n- Reply in your language (auto-detected)\n- You can ask in natural language (for example: \"meetings from last Monday\")\n- Commands start with / and are not translated",
+    "overview": "- Show your agenda and highlight meetings with transcripts\n- Let you pick a meeting and summarize it\n- Answer questions about a meeting transcript\n- Reply in your language (auto-detected)\n- You can ask in natural language (for example: \"meetings from last Monday\")\n- Commands start with / and are not translated\n- Use /help any time to see the full command list (including debug tools)",
     "commandsTitle": "Commands:",
-    "agenda": "/agenda [today|tomorrow|week|yesterday|last 7 days] [keyword] - list meetings",
-    "select": "/select <number> - choose a meeting from the list",
-    "summary": "/summary [lang] - summarize the selected meeting",
-    "qa": "/qa [lang] <question> - ask about the selected meeting",
+    "agenda": "/agenda [today|tomorrow|week|yesterday|last 7 days] [keyword] - list meetings in a range, optional keyword filter",
+    "select": "/select <number> - choose a meeting from the last agenda list",
+    "summary": "/summary [lang] - summarize the selected meeting (optional language)",
+    "qa": "/qa [lang] <question> - ask a question about the selected meeting",
     "language": "/language <code> - set your language (example: en, es, ro)",
     "how": "/how - how I work and what data I use",
     "contribute": "/contribute - how to contribute and repo link",
     "help": "/help - show this message",
-    "whoami": "/whoami - show debug info (token + tenant)",
-    "graphdebug": "/graphdebug - test Graph access",
-    "logs": "/logs on|off - toggle debug logs",
+    "whoami": "/whoami - show debug info (user, tenant, token status)",
+    "graphdebug": "/graphdebug - test Graph access and transcript availability",
+    "logs": "/logs on|off - toggle debug logs for this chat",
+    "logout": "/logout - sign out of the bot",
     "examplesTitle": "Examples:",
-    "examples": "- check my agenda\n- /agenda today design\n- /select 2\n- /summary\n- /qa what did we decide?\n- /language es\n- /contribute"
+    "examples": "- check my agenda\n- /agenda today design\n- /select 2\n- /summary\n- /qa what did we decide?\n- /language es\n- /logs on"
   },
   "howItWorks": "I use your calendar to list meetings, then look for meeting transcripts. If a meeting has a transcript, I can summarize it or answer questions. If no transcript exists, I will tell you.",
   "contribute": "To contribute, visit the Plain Concepts GitHub repo: {repoUrl}",
@@ -52,10 +53,13 @@
     "today": "Today is {date}."
   },
   "auth": {
-    "signIn": "Please sign in so I can access your agenda and transcripts.",
+    "signIn": "Please sign in so I can access your agenda and transcripts. After you click Sign in, you may be shown a 6-digit code (example: 646012). Copy and paste that code here in the chat — I’m waiting for it.",
     "signInCta": "Sign in",
-    "codeInvalid": "I couldn't verify that code. Please try signing in again.",
-    "signedIn": "You're signed in. Ask me about your meetings."
+    "waitingForCode": "If you see a 6-digit code, paste it here. I’ll confirm as soon as I receive it.",
+    "codeInvalid": "I received your code, but I couldn't verify it. If you were shown a 6-digit code, paste it here as the second step of sign-in. Otherwise, click Sign in again.",
+    "signedIn": "You're signed in. I received your code — ask me about your meetings.",
+    "signedOut": "You're signed out. If you want to continue, use /agenda and sign in again.",
+    "signOutNotConfigured": "Sign-out isn't available because OAuth is not configured for this bot."
   },
   "debug": {
     "title": "Debug info:",
@@ -67,7 +71,7 @@
     "graphError": "Graph access failed: {message}"
   },
   "logs": {
-    "enabled": "Debug logs enabled for this chat.",
+    "enabled": "Debug logs enabled for this chat. Warning: logs may include sensitive information; we recommend leaving this OFF unless you are troubleshooting.",
     "disabled": "Debug logs disabled for this chat.",
     "statusOn": "Debug logs are currently ON.",
     "statusOff": "Debug logs are currently OFF."

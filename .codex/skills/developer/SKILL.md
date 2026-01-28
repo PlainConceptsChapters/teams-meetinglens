@@ -10,14 +10,12 @@ Provide reusable guidance for implementing modular, testable services and helper
 
 ## Inputs
 - `README.md`
-- `BACKLOG.md`
 - `AGENTS.md`
 - Architecture decisions and ADR placeholders
 
 ## Outputs
 - Implementation notes and interface contracts (non-executable)
 - Unit test outlines for each helper/service
-- Updated backlog statuses for developer-owned items
 
 ## Constraints
 - No production code or runnable snippets
@@ -41,5 +39,4 @@ Provide reusable guidance for implementing modular, testable services and helper
 
 ## Related documentation
 - `../../README.md`
-- `../../BACKLOG.md`
 - `../../AGENTS.md`

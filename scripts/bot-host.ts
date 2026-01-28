@@ -6,8 +6,7 @@ import {
   TeamsActivityHandler,
   CloudAdapter,
   ConfigurationBotFrameworkAuthentication,
-  TurnContext,
-  CardFactory
+  TurnContext
 } from 'botbuilder';
 import { Attachment, Mention } from 'botframework-schema';
 import {
@@ -162,6 +161,17 @@ const translateToEnglish = async (text: string, language: LanguageCode): Promise
   return restoreCommandTokens(translated, protectedText.tokens);
 };
 
+const buildSignInResponse = async (request: ChannelRequest, language: LanguageCode) => {
+  const text = await translateOutgoing(t('auth.signIn'), language);
+  const metadata = request.signInLink
+    ? {
+        signinLink: request.signInLink,
+        followupText: await translateOutgoing(t('auth.waitingForCode'), language)
+      }
+    : undefined;
+  return { text, metadata };
+};
+
 const getLanguageKey = (request: ChannelRequest) => {
   const user = request.fromUserId || 'anonymous';
   return `${request.conversationId}:${user}`;
@@ -170,6 +180,8 @@ const getLanguageKey = (request: ChannelRequest) => {
 const getLogKey = (request: ChannelRequest) => getLanguageKey(request);
 
 const isLogEnabled = (request: ChannelRequest) => logStore.get(getLogKey(request)) ?? false;
+
+const isLogoutCommand = (text: string) => text.trim().toLowerCase().startsWith('/logout');
 
 const isLikelyEnglishText = (text?: string) => {
   if (!text) {
@@ -281,6 +293,30 @@ const buildAgendaCard = (title: string, items: { index: number; title: string; d
   };
 };
 
+const buildSignInCard = (prompt: string, cta: string, signInLink: string) => {
+  return {
+    contentType: 'application/vnd.microsoft.card.adaptive',
+    content: {
+      type: 'AdaptiveCard',
+      version: '1.4',
+      body: [
+        {
+          type: 'TextBlock',
+          text: prompt,
+          wrap: true
+        }
+      ],
+      actions: [
+        {
+          type: 'Action.OpenUrl',
+          title: cta,
+          url: signInLink
+        }
+      ]
+    }
+  };
+};
+
 const isAgendaIntent = (text: string): boolean => {
   const lower = text.toLowerCase();
   return (
@@ -371,6 +407,10 @@ const buildHelpText = (): string => {
     t('help.how'),
     t('help.contribute'),
     t('help.help'),
+    t('help.whoami'),
+    t('help.graphdebug'),
+    t('help.logs'),
+    t('help.logout'),
     '',
     t('help.examplesTitle'),
     t('help.examples')
@@ -783,10 +823,7 @@ const handleAgendaRequest = async (request: ChannelRequest) => {
   const englishText = await translateToEnglish(userText, preferred);
   const nlu = await getNluService()?.parse(englishText, new Date(), systemTimeZone);
   if (!request.graphToken && !graphAccessToken) {
-    return {
-      text: await translateOutgoing(t('auth.signIn'), preferred),
-      metadata: request.signInLink ? { signinLink: request.signInLink } : undefined
-    };
+    return buildSignInResponse(request, preferred);
   }
   const explicitSubject =
     /\b(about|subject|titled|called|with|regarding|keyword)\b/i.test(englishText);
@@ -896,10 +933,7 @@ const router = new TeamsCommandRouter({
       handler: async (request) => {
         const language = await resolvePreferredLanguage(request);
         if (!request.graphToken && !graphAccessToken) {
-          return {
-            text: await translateOutgoing(t('auth.signIn'), language),
-            metadata: request.signInLink ? { signinLink: request.signInLink } : undefined
-          };
+          return buildSignInResponse(request, language);
         }
         const debug = await runGraphDebug(request);
         if (!debug.ok) {
@@ -982,10 +1016,7 @@ const router = new TeamsCommandRouter({
         const { language } = extractLanguageToken(request.text ?? '');
         const preferred = await resolvePreferredLanguage(request, language);
         if (!request.graphToken && !graphAccessToken) {
-          return {
-            text: await translateOutgoing(t('auth.signIn'), preferred),
-            metadata: request.signInLink ? { signinLink: request.signInLink } : undefined
-          };
+          return buildSignInResponse(request, preferred);
         }
         const store = selectionStore.get(request.conversationId);
         if (!store || !store.items.length) {
@@ -1038,10 +1069,7 @@ const router = new TeamsCommandRouter({
         const { language, remainder } = extractLanguageToken(request.text ?? '');
         const preferred = await resolvePreferredLanguage(request, language);
         if (!request.graphToken && !graphAccessToken) {
-          return {
-            text: await translateOutgoing(t('auth.signIn'), preferred),
-            metadata: request.signInLink ? { signinLink: request.signInLink } : undefined
-          };
+          return buildSignInResponse(request, preferred);
         }
         const question = remainder || request.text;
         const englishQuestion = await translateToEnglish(question, preferred);
@@ -1118,10 +1146,7 @@ const router = new TeamsCommandRouter({
     }
     if (isGraphDebugIntent(englishText)) {
       if (!request.graphToken && !graphAccessToken) {
-        return {
-          text: await translateOutgoing(t('auth.signIn'), preferred),
-          metadata: request.signInLink ? { signinLink: request.signInLink } : undefined
-        };
+        return buildSignInResponse(request, preferred);
       }
       const debug = await runGraphDebug(request);
       if (!debug.ok) {
@@ -1173,10 +1198,7 @@ const router = new TeamsCommandRouter({
 
     if (intent === 'summary') {
       if (!request.graphToken && !graphAccessToken) {
-        return {
-          text: await translateOutgoing(t('auth.signIn'), preferred),
-          metadata: request.signInLink ? { signinLink: request.signInLink } : undefined
-        };
+        return buildSignInResponse(request, preferred);
       }
       const store = selectionStore.get(request.conversationId);
       const selected = store?.items?.[0]?.agendaItem;
@@ -1215,10 +1237,7 @@ const router = new TeamsCommandRouter({
 
     if (intent === 'qa') {
       if (!request.graphToken && !graphAccessToken) {
-        return {
-          text: await translateOutgoing(t('auth.signIn'), preferred),
-          metadata: request.signInLink ? { signinLink: request.signInLink } : undefined
-        };
+        return buildSignInResponse(request, preferred);
       }
       const question = nlu?.question ?? englishText;
       const store = selectionStore.get(request.conversationId);
@@ -1279,17 +1298,17 @@ class TeamsBot extends TeamsActivityHandler {
       const value = activity.value as { command?: string; selection?: string } | undefined;
       const commandText =
         value?.command === 'select' && value.selection ? `/select ${value.selection}` : undefined;
-  const fromAadObjectId = (activity.from as { aadObjectId?: string } | undefined)?.aadObjectId;
+      const incomingText = commandText ?? activity.text ?? '';
+      const fromAadObjectId = (activity.from as { aadObjectId?: string } | undefined)?.aadObjectId;
       let graphToken: string | undefined;
       let signInLink: string | undefined;
-      let pendingMagicCode = false;
+      const magicCodeMatch = (activity.text ?? '').trim().match(/^\d{6}$/);
+      const magicCode = magicCodeMatch ? magicCodeMatch[0] : '';
       if (oauthConnection) {
         const claimsIdentity = context.turnState.get(adapter.BotIdentityKey);
         if (claimsIdentity) {
           try {
             const userTokenClient = await botFrameworkAuthentication.createUserTokenClient(claimsIdentity);
-            const magicCodeMatch = (activity.text ?? '').trim().match(/^\d{6}$/);
-            const magicCode = magicCodeMatch ? magicCodeMatch[0] : '';
             const token = await userTokenClient.getUserToken(
               activity.from?.id ?? '',
               oauthConnection,
@@ -1300,12 +1319,10 @@ class TeamsBot extends TeamsActivityHandler {
             if (!graphToken) {
               const signInResource = await userTokenClient.getSignInResource(oauthConnection, activity, '');
               signInLink = signInResource?.signInLink;
-              pendingMagicCode = Boolean(magicCodeMatch);
             }
           } catch {
             graphToken = undefined;
             signInLink = undefined;
-            pendingMagicCode = false;
           }
         }
       }
@@ -1348,12 +1365,36 @@ class TeamsBot extends TeamsActivityHandler {
         locale: activity.locale ?? (activity.channelData as { locale?: string } | undefined)?.locale ?? undefined
       };
 
-      if (pendingMagicCode) {
-        if (graphToken) {
-          await context.sendActivity(t('auth.signedIn'));
-        } else {
-          await context.sendActivity(t('auth.codeInvalid'));
+      if (magicCodeMatch) {
+        const preferred = await resolvePreferredLanguage(request);
+        const message = graphToken ? t('auth.signedIn') : t('auth.codeInvalid');
+        await context.sendActivity(await translateOutgoing(message, preferred));
+        await next();
+        return;
+      }
+
+      if (isLogoutCommand(incomingText)) {
+        const preferred = await resolvePreferredLanguage(request);
+        if (!oauthConnection) {
+          await context.sendActivity(await translateOutgoing(t('auth.signOutNotConfigured'), preferred));
+          await next();
+          return;
         }
+        const claimsIdentity = context.turnState.get(adapter.BotIdentityKey);
+        if (!claimsIdentity) {
+          await context.sendActivity(await translateOutgoing(t('auth.signOutNotConfigured'), preferred));
+          await next();
+          return;
+        }
+        try {
+          const userTokenClient = await botFrameworkAuthentication.createUserTokenClient(claimsIdentity);
+          await userTokenClient.signOutUser(activity.from?.id ?? '', oauthConnection, activity.channelId ?? '');
+        } catch {
+          await context.sendActivity(await translateOutgoing(t('auth.signOutNotConfigured'), preferred));
+          await next();
+          return;
+        }
+        await context.sendActivity(await translateOutgoing(t('auth.signedOut'), preferred));
         await next();
         return;
       }
@@ -1361,6 +1402,7 @@ class TeamsBot extends TeamsActivityHandler {
       const response = await router.handle(request);
       const metadata = response.metadata?.adaptiveCard;
       const signIn = response.metadata?.signinLink;
+      const followupText = response.metadata?.followupText;
       if (metadata) {
         await context.sendActivity({
           text: response.text,
@@ -1369,8 +1411,11 @@ class TeamsBot extends TeamsActivityHandler {
       } else if (signIn) {
         await context.sendActivity({
           text: response.text,
-          attachments: [CardFactory.signinCard(t('auth.signInCta'), signIn)]
+          attachments: [buildSignInCard(response.text, t('auth.signInCta'), signIn)]
         });
+        if (followupText) {
+          await context.sendActivity(followupText);
+        }
       } else {
         await context.sendActivity(response.text);
       }

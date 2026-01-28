@@ -6,7 +6,6 @@ language = "typescript"
 
 [docs]
 entrypoint = "README.md"
-backlog = "BACKLOG.md"
 agents = "AGENTS.md"
 
 [commands]
@@ -21,7 +20,5 @@ protected = [".env"]
 ignore = ["node_modules/", "dist/", "coverage/"]
 
 [policies]
-# Require documentation updates for backlog status changes
-update_backlog_on_status_change = true
 # Avoid adding end-to-end Teams UI tests in this repo
 disallow_e2e_ui_tests = true

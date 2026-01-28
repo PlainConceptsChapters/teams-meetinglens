@@ -10,14 +10,12 @@ Define quality gates, unit-focused testing strategy, and CI expectations for tea
 
 ## Inputs
 - `README.md`
-- `BACKLOG.md`
 - `AGENTS.md`
 - Risk register and ADR placeholders
 
 ## Outputs
 - Unit test plan updates and checklist items
 - CI gate definitions (documentation-only)
-- Updated backlog status for quality-related work
 
 ## Constraints
 - No production code or runnable pipelines
@@ -40,5 +38,4 @@ Define quality gates, unit-focused testing strategy, and CI expectations for tea
 
 ## Related documentation
 - `../../README.md`
-- `../../BACKLOG.md`
 - `../../AGENTS.md`

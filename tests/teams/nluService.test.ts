@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { NluService } from '../../src/teams/nluService.js';
-import { LlmMessage } from '../../src/llm/types.js';
 
 const createClient = (response: string) => ({
-  complete: async (_messages: LlmMessage[]) => response
+  complete: async () => response
 });
 
 describe('NluService', () => {

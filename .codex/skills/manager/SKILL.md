@@ -1,28 +1,24 @@
 ﻿# Manager Skill
 
 ## Purpose
-Maintain backlog integrity, scope control, and documentation discipline for teams-meetinglens.
+Maintain scope control and documentation discipline for teams-meetinglens.
 
 ## Scope and responsibilities
-- Keep `BACKLOG.md` as the single source of truth
 - Manage status transitions across milestones, epics, features, and tasks
 - Ensure documentation reflects current decisions and scope
 
 ## Inputs
-- `BACKLOG.md`
 - `README.md`
 - `AGENTS.md`
 - Risk register updates
 
 ## Outputs
-- Updated backlog status snapshot and milestones
 - Scope and priority notes in documentation
 - Documentation consistency checks
 
 ## Constraints
 - No production code
 - Status taxonomy must remain consistent
-- Avoid scope expansion without backlog updates
 
 ## Error-handling expectations
 - Flag ambiguous ownership or missing statuses
@@ -35,10 +31,8 @@ Maintain backlog integrity, scope control, and documentation discipline for team
 
 ## Quality bar / validation checklist
 - Every Epic, Feature, and Task has a status
-- Milestone status matches detailed backlog items
 - Risk register is current with mitigations
 
 ## Related documentation
 - `../../README.md`
-- `../../BACKLOG.md`
 - `../../AGENTS.md`
