@@ -4,7 +4,6 @@ import express, { Request, Response } from 'express';
 import {
   TeamsActivityHandler,
   CloudAdapter,
-  ConfigurationServiceClientCredentialFactory,
   ConfigurationBotFrameworkAuthentication,
   TurnContext
 } from 'botbuilder';
@@ -25,14 +24,12 @@ const port = Number(process.env.BOT_PORT ?? 3978);
 const endpointPath = process.env.BOT_ENDPOINT_PATH ?? '/api/messages';
 const botMentionText = process.env.BOT_MENTION_TEXT;
 
-const credentials = new ConfigurationServiceClientCredentialFactory({
-  MicrosoftAppId: requireEnv('TEAMS_APP_ID'),
-  MicrosoftAppPassword: requireEnv('TEAMS_APP_PASSWORD')
+const botFrameworkAuthentication = new ConfigurationBotFrameworkAuthentication({
+  MicrosoftAppId: requireEnv('TEAMS_BOT_ID'),
+  MicrosoftAppPassword: requireEnv('TEAMS_APP_PASSWORD'),
+  MicrosoftAppType: process.env.MICROSOFT_APP_TYPE ?? 'SingleTenant',
+  MicrosoftAppTenantId: process.env.MICROSOFT_APP_TENANT_ID ?? process.env.AZURE_TENANT_ID
 });
-const botFrameworkAuthentication = new ConfigurationBotFrameworkAuthentication(
-  {},
-  credentials
-);
 const adapter = new CloudAdapter(botFrameworkAuthentication);
 
 const buildTranscript = async (): Promise<{ raw: string; cues: [] }> => {
@@ -139,6 +136,8 @@ class TeamsBot extends TeamsActivityHandler {
 const bot = new TeamsBot();
 
 const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.post(endpointPath, (req: Request, res: Response) => {
   adapter.process(req, res, async (turnContext) => {
     await bot.run(turnContext);

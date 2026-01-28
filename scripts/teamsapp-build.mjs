@@ -11,11 +11,12 @@ const requireEnv = (key) => {
 };
 
 const appId = requireEnv('TEAMS_APP_ID');
+const botId = requireEnv('TEAMS_BOT_ID');
 const templatePath = path.join('teamsapp', 'manifest.template.json');
 const outputPath = path.join('teamsapp', 'manifest.json');
 
 const template = await fs.readFile(templatePath, 'utf8');
-const rendered = template.replaceAll('${TEAMS_APP_ID}', appId);
+const rendered = template.replaceAll('${TEAMS_APP_ID}', appId).replaceAll('${TEAMS_BOT_ID}', botId);
 
 await fs.writeFile(outputPath, rendered, 'utf8');
 console.log(`Wrote ${outputPath} from ${templatePath}.`);

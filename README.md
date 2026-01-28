@@ -43,6 +43,7 @@ Illustrative (non-executable) configuration keys:
 
 ```text
 TEAMS_APP_ID=
+TEAMS_BOT_ID=
 AZURE_TENANT_ID=
 GRAPH_SCOPES=
 AZURE_OPENAI_ENDPOINT=

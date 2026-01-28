@@ -27,7 +27,7 @@ You need the App (client) ID and a client secret (used as the Teams app password
 From Entra ID:
 1. Open Azure portal -> Microsoft Entra ID -> App registrations.
 2. Select your bot app registration.
-3. Copy the **Application (client) ID** -> this is **both** `AZURE_CLIENT_ID` and `TEAMS_APP_ID`.
+3. Copy the **Application (client) ID** -> this is **both** `AZURE_CLIENT_ID` and `TEAMS_BOT_ID`.
    - Reason: the Teams bot (Bot Framework) and Graph/OBO auth are backed by the same Entra app registration, so they share one client ID.
 4. Go to **Certificates & secrets** -> **New client secret**.
 5. Copy the secret **Value** -> this is `TEAMS_APP_PASSWORD`.
@@ -36,6 +36,16 @@ From Azure Bot registration:
 1. Open Azure portal -> your Azure Bot resource.
 2. Under **Configuration**, note the **Microsoft App ID** (same as Entra App ID).
 3. Use the client secret you created in Entra as the **Microsoft App Password**.
+
+### Configure Graph API permissions (delegated)
+1. Open Azure portal -> Microsoft Entra ID -> App registrations -> your app.
+2. Go to **API permissions** -> **Add a permission** -> **Microsoft Graph** -> **Delegated permissions**.
+3. Add:
+   - `Calendars.Read`
+   - `OnlineMeetings.Read`
+   - `OnlineMeetingTranscript.Read.All`
+   - `User.Read`
+4. Click **Grant admin consent** for your tenant.
 
 ### Creating an Azure Bot resource
 1. In the Azure portal, click **Create a resource** and search for **Azure Bot**.
@@ -49,7 +59,17 @@ From Azure Bot registration:
 5. Open the bot resource -> **Channels** -> add **Microsoft Teams**.
 
 Steps:
-1. Populate `.env` with your Entra and Teams values (including `TEAMS_APP_ID` and `TEAMS_APP_PASSWORD`).
+1. Populate `.env` with your Entra and Teams values:
+   - `TEAMS_APP_ID`: **Teams App ID** from Developer Portal (this goes in manifest `id`).
+   - `TEAMS_BOT_ID`: **Entra App (client) ID** (this goes in manifest `bots[0].botId`).
+   - `TEAMS_APP_PASSWORD`: Entra client secret (bot password).
+   - `MICROSOFT_APP_TYPE`: `SingleTenant`.
+   - `MICROSOFT_APP_TENANT_ID`: your Entra tenant id (same as `AZURE_TENANT_ID`).
+   - Common mistake: swapping `TEAMS_APP_ID` and `TEAMS_BOT_ID` will break upload/routing.
+   - Optional local testing:
+     - `BOT_TRANSCRIPT_TEXT`: inline transcript text for local testing.
+     - `BOT_TRANSCRIPT_FILE`: path to a transcript text file for local testing.
+     - `BOT_MENTION_TEXT`: bot mention text to strip (e.g., `@meetinglens`).
 2. Configure a dev tunnel to expose `http://localhost:3978/api/messages`.
 3. In Azure Bot registration, set the messaging endpoint to your tunnel URL + `/api/messages`.
    - Azure portal -> your Azure Bot resource -> Configuration -> Messaging endpoint.

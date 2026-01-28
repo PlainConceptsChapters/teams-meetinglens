@@ -11,12 +11,14 @@ This backlog is the single source of truth for project status. Every Epic, Featu
 | Milestone M2: Auth + Graph calendar | Done |
 | Milestone M3: Meetings & transcripts | Done |
 | Milestone M4: Summarization & Q&A | Done |
+| Milestone M5: Agenda search + meeting summaries | Planned |
 | Epic E1: Foundation & repo hygiene | Done |
 | Epic E2: Auth & identity (OBO) | Done |
 | Epic E3: Graph meetings & transcripts | Done |
 | Epic E4: LLM summarization & Q&A | Done |
 | Epic E5: Observability & security | Done |
 | Epic E6: Teams channel layer & bot integration | Done (Added based on research context) |
+| Epic E7: Agenda search + meeting summaries | Planned |
 
 ## Definition of done
 - Documentation updated
@@ -58,6 +60,15 @@ This backlog is the single source of truth for project status. Every Epic, Featu
   - Summarization pipeline for meetings is available through domain services
   - Q&A over transcripts supported with guardrails
   - Unit tests for summarization, chunking, and caching
+
+### M5: Agenda search + meeting summaries
+- Status: Planned
+- Acceptance criteria:
+  - Users can search meetings from their calendar/agenda
+  - Selected meeting summaries are generated from transcripts via OpenAI
+  - Clear user-facing message when no transcript is available
+  - Q&A works for meetings with transcripts
+  - Unit tests cover agenda search, meeting selection, and transcript missing cases
 
 ## Epics, features, stories / tasks
 
@@ -378,6 +389,75 @@ This backlog is the single source of truth for project status. Every Epic, Featu
 - Acceptance criteria:
   - Azure Bot resource setup documented
   - Configuration keys and channels documented
+
+---
+
+### Epic E7: Agenda search + meeting summaries
+- Status: Planned
+- Acceptance criteria:
+  - Agenda search uses Graph calendar data for the current user
+  - Transcript summaries are generated via OpenAI for selected meetings
+  - Missing transcript scenarios return clear, non-technical user messaging
+  - Q&A supported for meetings with transcripts only
+
+#### Feature E7.F1: Agenda search & meeting selection
+- Status: Planned
+- Acceptance criteria:
+  - Search meetings by time range, subject, organizer, or keyword
+  - Support selection of a specific meeting from results
+  - Unit tests for query building and selection logic
+
+##### Task E7.F1.T1: Define agenda search query contract
+- Status: Planned
+- Acceptance criteria:
+  - Request parameters and defaults documented
+  - Bounded time window enforced
+
+##### Task E7.F1.T2: Implement agenda search service
+- Status: Planned
+- Acceptance criteria:
+  - Uses Graph calendarView with filters
+  - Respects paging and throttling
+  - Unit tests for filters and paging
+
+##### Task E7.F1.T3: Add meeting selection response model
+- Status: Planned
+- Acceptance criteria:
+  - Meeting list includes id, subject, organizer, start/end, joinUrl
+  - Stable selection token for follow-up actions
+
+#### Feature E7.F2: Transcript summary for selected meeting
+- Status: Planned
+- Acceptance criteria:
+  - Retrieves transcript for selected meeting when available
+  - Summarizes transcript via OpenAI
+  - Missing transcript returns clear user message
+  - Unit tests for summary flow and missing transcript handling
+
+##### Task E7.F2.T1: Implement transcript lookup by selected meeting
+- Status: Planned
+- Acceptance criteria:
+  - Uses meeting identity to resolve onlineMeetingId or joinUrl
+  - Handles 404/empty transcript list gracefully
+
+##### Task E7.F2.T2: Summarize selected meeting transcript
+- Status: Planned
+- Acceptance criteria:
+  - Uses summarization pipeline with schema validation
+  - Output includes summary and key points
+
+#### Feature E7.F3: Q&A over selected meeting transcript
+- Status: Planned
+- Acceptance criteria:
+  - Answers questions using the selected meeting transcript
+  - Returns a clear message if transcript is missing
+  - Unit tests for Q&A and missing transcript cases
+
+##### Task E7.F3.T1: Add Q&A entrypoint for selected meeting
+- Status: Planned
+- Acceptance criteria:
+  - Accepts meeting selection token + question
+  - Reuses Q&A service with transcript context
 
 ## Risk register
 
