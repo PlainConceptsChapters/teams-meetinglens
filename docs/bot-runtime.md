@@ -17,9 +17,21 @@ This host receives Teams activities via Bot Framework and routes them to the `Te
 - `BOT_TRANSCRIPT_TEXT` (optional, inline transcript for dev)
 - `BOT_TRANSCRIPT_FILE` (optional, path to transcript text file)
 - `GRAPH_ACCESS_TOKEN` (optional, delegated Graph token for agenda search in dev)
-- `GRAPH_APP_SCOPES` (optional, app-only scopes; default: `https://graph.microsoft.com/.default`)
+- `BOT_OAUTH_CONNECTION` (optional, OAuth connection name for Teams SSO)
 
-If `GRAPH_ACCESS_TOKEN` is not set, the bot uses client credentials with `GRAPH_APP_SCOPES`.
+When `BOT_OAUTH_CONNECTION` is set, the bot uses the Teams SSO token to call Graph on behalf of the user.
+
+Azure Bot OAuth connection fields:
+- Provider: Azure Active Directory v2
+- Client ID: Entra App ID
+- Client secret: secret value
+- Tenant ID: Entra tenant GUID
+- Scopes: Calendars.Read OnlineMeetings.Read OnlineMeetingTranscript.Read.All User.Read
+- Token Exchange URL: Application ID URI (api://<app-id>)
+
+Manifest SSO fields:
+- webApplicationInfo.id: Entra App ID (same as TEAMS_BOT_ID)
+- webApplicationInfo.resource: Application ID URI (set TEAMS_APP_RESOURCE)
 
 ## Run locally
 ```text

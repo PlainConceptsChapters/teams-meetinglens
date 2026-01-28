@@ -30,5 +30,9 @@
       "isNotificationOnly": false
     }
   ],
-  "permissions": ["identity"]
+  "permissions": ["identity"],
+  "webApplicationInfo": {
+    "id": "${TEAMS_BOT_ID}",
+    "resource": "${TEAMS_APP_RESOURCE}"
+  }
 }

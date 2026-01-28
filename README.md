@@ -122,6 +122,21 @@ npm run bot:dev
 npm run teamsapp:pack
 ```
 
+## Teams SSO / delegated Graph
+For production-style access (each user only sees their own data), configure an OAuth connection on the Azure Bot resource and set `BOT_OAUTH_CONNECTION` in `.env`. The bot will use the user token from Teams SSO to call Graph `/me/...` endpoints (no manual `GRAPH_ACCESS_TOKEN` needed).
+
+OAuth connection settings (Azure Bot -> Configuration):
+- Provider: **Azure Active Directory v2**
+- Client ID: Entra App ID
+- Client secret: secret **value**
+- Tenant ID: Entra tenant GUID
+- Scopes: `Calendars.Read OnlineMeetings.Read OnlineMeetingTranscript.Read.All User.Read`
+- Token Exchange URL: Application ID URI (Entra -> Expose an API), typically `api://<app-id>`
+
+Manifest SSO fields:
+- `webApplicationInfo.id`: Entra App ID (same as `TEAMS_BOT_ID`)
+- `webApplicationInfo.resource`: Application ID URI (set `TEAMS_APP_RESOURCE`)
+
 ## Localization (i18n)
 User-facing bot text is stored in English only (`src/i18n/en.json`). At runtime the bot detects the user's language and uses Azure OpenAI to translate replies back to that language. Use `/language <code>` to override detection (example: `es`, `ro`, `fr`).
 
@@ -148,8 +163,6 @@ Azure OpenAI variables (for summarization/Q&A):
 - `AZURE_OPENAI_DEPLOYMENT`
 - `AZURE_OPENAI_API_VERSION`
 
-Graph app-only fallback:
-- If `GRAPH_ACCESS_TOKEN` is not set, the bot uses client credentials with `GRAPH_APP_SCOPES` (default `https://graph.microsoft.com/.default`). Ensure application permissions are granted and admin consented.
 
 Testing scope reminder:
 - Unit tests are required for modular components (Graph wrappers, transcript processing, summarization, caching)

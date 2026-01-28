@@ -48,7 +48,9 @@ const requiredKeys = [
   'transcript.notAvailable',
   'meeting.notFound',
   'fallback.unknown',
-  'date.today'
+  'date.today',
+  'auth.signIn',
+  'auth.signInCta'
 ];
 
 describe('i18n catalogs', () => {

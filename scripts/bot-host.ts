@@ -6,16 +6,15 @@ import {
   TeamsActivityHandler,
   CloudAdapter,
   ConfigurationBotFrameworkAuthentication,
-  TurnContext
+  TurnContext,
+  CardFactory
 } from 'botbuilder';
 import { Attachment, Mention } from 'botframework-schema';
 import {
   AgendaService,
-  AuthService,
   AzureOpenAiClient,
   CalendarService,
   GraphClient,
-  InMemoryTokenCache,
   MeetingTranscriptService,
   OnlineMeetingService,
   QaService,
@@ -42,11 +41,7 @@ const endpointPath = process.env.BOT_ENDPOINT_PATH ?? '/api/messages';
 const botMentionText = process.env.BOT_MENTION_TEXT;
 const graphBaseUrl = process.env.GRAPH_BASE_URL ?? 'https://graph.microsoft.com/v1.0';
 const graphAccessToken = process.env.GRAPH_ACCESS_TOKEN;
-const graphAppScopesRaw = process.env.GRAPH_APP_SCOPES?.split(/\s+/).filter(Boolean);
-const graphAppScopes = graphAppScopesRaw && graphAppScopesRaw.length > 0
-  ? graphAppScopesRaw
-  : ['https://graph.microsoft.com/.default'];
-const useAppOnly = !graphAccessToken;
+const oauthConnection = process.env.BOT_OAUTH_CONNECTION;
 const systemTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 const botFrameworkAuthentication = new ConfigurationBotFrameworkAuthentication({
@@ -68,33 +63,20 @@ const buildTranscript = async (): Promise<{ raw: string; cues: [] }> => {
   return { raw: '', cues: [] };
 };
 
-const getGraphToken = async (): Promise<string> => {
+const getGraphTokenForRequest = async (request: ChannelRequest): Promise<string> => {
   if (graphAccessToken) {
     return graphAccessToken;
   }
-  const tenantId = process.env.AZURE_TENANT_ID;
-  const clientId = process.env.AZURE_CLIENT_ID;
-  const clientSecret = process.env.AZURE_CLIENT_SECRET;
-  if (!tenantId || !clientId || !clientSecret) {
-    throw new Error('Missing GRAPH_ACCESS_TOKEN or Azure client credentials.');
+  if (request.graphToken) {
+    return request.graphToken;
   }
-  const authService = new AuthService({
-    config: {
-      tenantId,
-      clientId,
-      clientSecret,
-      authorityHost: process.env.AUTHORITY_HOST
-    },
-    cache: new InMemoryTokenCache()
-  });
-  const token = await authService.acquireClientCredentialToken(graphAppScopes);
-  return token.token;
+  throw new Error('Missing Graph token for this user.');
 };
 
-const buildGraphServices = () => {
+const buildGraphServicesForRequest = (request: ChannelRequest) => {
   const graphClient = new GraphClient({
     baseUrl: graphBaseUrl,
-    tokenProvider: getGraphToken
+    tokenProvider: () => getGraphTokenForRequest(request)
   });
   const calendarService = new CalendarService({ graphClient });
   const onlineMeetingService = new OnlineMeetingService({ graphClient });
@@ -235,7 +217,6 @@ const resolvePreferredLanguage = async (
 
 type TranslationCatalog = Record<string, unknown>;
 const languageStore = new Map<string, LanguageCode>();
-const agendaStore = new Map<string, AgendaService>();
 const selectionStore = new Map<
   string,
   { items: { index: number; title: string; details: string; agendaItem: import('../src/agenda/types.js').AgendaItem }[] }
@@ -243,18 +224,8 @@ const selectionStore = new Map<
 let translationService: TranslationService | undefined;
 let nluService: NluService | undefined;
 
-const getAgendaService = (): AgendaService => {
-  const existing = agendaStore.get('default');
-  if (existing) {
-    return existing;
-  }
-  const { agendaService } = buildGraphServices();
-  agendaStore.set('default', agendaService);
-  return agendaService;
-};
-
-const getMeetingTranscriptService = () => {
-  const { onlineMeetingService, transcriptService } = buildGraphServices();
+const getMeetingTranscriptService = (request: ChannelRequest) => {
+  const { onlineMeetingService, transcriptService } = buildGraphServicesForRequest(request);
   return { onlineMeetingService, transcriptService };
 };
 
@@ -564,22 +535,21 @@ const findClosestMeetingByTime = (
 };
 
 const findMeetingFromNlu = async (
+  request: ChannelRequest,
   englishText: string,
   nlu: NluResult | undefined,
-  requireTranscript: boolean,
-  userId?: string
+  requireTranscript: boolean
 ): Promise<import('../src/agenda/types.js').AgendaItem | undefined> => {
   const fallbackRange = parseAgendaRange(englishText);
   const nluRange = resolveDateRangeFromNlu(nlu);
   const range = nluRange ?? { start: fallbackRange.start, end: fallbackRange.end };
   const subjectQuery = nlu?.subject ?? fallbackRange.remainder;
-  const agendaService = getAgendaService();
+  const { agendaService } = buildGraphServicesForRequest(request);
   const agenda = await agendaService.searchAgenda({
     ...formatDateRange(range),
     subjectContains: subjectQuery || undefined,
     includeTranscriptAvailability: true,
-    top: 10,
-    userId
+    top: 10
   });
   let items = agenda.items;
   if (requireTranscript) {
@@ -596,15 +566,14 @@ const getTranscriptFromMeetingContext = async (request: ChannelRequest) => {
   if (!request.meetingId && !request.meetingJoinUrl) {
     return undefined;
   }
-  const { onlineMeetingService, transcriptService } = getMeetingTranscriptService();
+  const { onlineMeetingService, transcriptService } = getMeetingTranscriptService(request);
   const transcriptLookup = new MeetingTranscriptService({
     onlineMeetingService,
     transcriptService
   });
   return transcriptLookup.getTranscriptForMeetingContext({
     meetingId: request.meetingId,
-    joinUrl: request.meetingJoinUrl,
-    userId: useAppOnly ? request.fromUserId || undefined : undefined
+    joinUrl: request.meetingJoinUrl
   });
 };
 
@@ -666,20 +635,24 @@ const handleAgendaRequest = async (request: ChannelRequest) => {
   const userText = remainder || request.text || '';
   const englishText = await translateToEnglish(userText, preferred);
   const nlu = await getNluService()?.parse(englishText, new Date(), systemTimeZone);
+  if (!request.graphToken && !graphAccessToken) {
+    return {
+      text: await translateOutgoing(t('auth.signIn'), preferred),
+      metadata: request.signInLink ? { signinLink: request.signInLink } : undefined
+    };
+  }
   const fallbackRange = parseAgendaRange(englishText);
   const nluRange = resolveDateRangeFromNlu(nlu);
   const range = nluRange ?? { start: fallbackRange.start, end: fallbackRange.end };
   const subjectQuery = nlu?.subject ?? fallbackRange.remainder;
-  const agendaService = getAgendaService();
-  const graphUserId = useAppOnly ? request.fromUserId || undefined : undefined;
+  const { agendaService } = buildGraphServicesForRequest(request);
   let agenda;
   try {
     agenda = await agendaService.searchAgenda({
       ...formatDateRange(range),
       subjectContains: subjectQuery || undefined,
       includeTranscriptAvailability: true,
-      top: 10,
-      userId: graphUserId
+      top: 10
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Agenda search failed.';
@@ -792,6 +765,12 @@ const router = new TeamsCommandRouter({
       handler: async (request) => {
         const { language } = extractLanguageToken(request.text ?? '');
         const preferred = await resolvePreferredLanguage(request, language);
+        if (!request.graphToken && !graphAccessToken) {
+          return {
+            text: await translateOutgoing(t('auth.signIn'), preferred),
+            metadata: request.signInLink ? { signinLink: request.signInLink } : undefined
+          };
+        }
         const store = selectionStore.get(request.conversationId);
         if (!store || !store.items.length) {
           try {
@@ -818,7 +797,7 @@ const router = new TeamsCommandRouter({
         }
 
         const selected = store.items[0].agendaItem;
-        const { onlineMeetingService, transcriptService } = getMeetingTranscriptService();
+        const { onlineMeetingService, transcriptService } = getMeetingTranscriptService(request);
         let transcript;
         try {
           const transcriptLookup = new MeetingTranscriptService({
@@ -842,6 +821,12 @@ const router = new TeamsCommandRouter({
       handler: async (request) => {
         const { language, remainder } = extractLanguageToken(request.text ?? '');
         const preferred = await resolvePreferredLanguage(request, language);
+        if (!request.graphToken && !graphAccessToken) {
+          return {
+            text: await translateOutgoing(t('auth.signIn'), preferred),
+            metadata: request.signInLink ? { signinLink: request.signInLink } : undefined
+          };
+        }
         const question = remainder || request.text;
         const englishQuestion = await translateToEnglish(question, preferred);
         const store = selectionStore.get(request.conversationId);
@@ -869,7 +854,7 @@ const router = new TeamsCommandRouter({
           return { text: await translateOutgoing(result.answer, preferred) };
         }
         const selected = store.items[0].agendaItem;
-        const { onlineMeetingService, transcriptService } = getMeetingTranscriptService();
+        const { onlineMeetingService, transcriptService } = getMeetingTranscriptService(request);
         let transcript;
         try {
           const transcriptLookup = new MeetingTranscriptService({
@@ -925,9 +910,14 @@ const router = new TeamsCommandRouter({
     }
 
     if (intent === 'summary') {
+      if (!request.graphToken && !graphAccessToken) {
+        return {
+          text: await translateOutgoing(t('auth.signIn'), preferred),
+          metadata: request.signInLink ? { signinLink: request.signInLink } : undefined
+        };
+      }
       const store = selectionStore.get(request.conversationId);
       const selected = store?.items?.[0]?.agendaItem;
-      const graphUserId = useAppOnly ? request.fromUserId || undefined : undefined;
       try {
         const transcriptFromContext = await getTranscriptFromMeetingContext(request);
         if (transcriptFromContext?.raw) {
@@ -940,11 +930,11 @@ const router = new TeamsCommandRouter({
         return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
       }
 
-      const meeting = selected ?? (await findMeetingFromNlu(englishText, nlu, true, graphUserId));
+      const meeting = selected ?? (await findMeetingFromNlu(request, englishText, nlu, true));
       if (!meeting) {
         return { text: await translateOutgoing(t('meeting.notFound'), preferred) };
       }
-      const { onlineMeetingService, transcriptService } = getMeetingTranscriptService();
+      const { onlineMeetingService, transcriptService } = getMeetingTranscriptService(request);
       let transcript;
       try {
         const transcriptLookup = new MeetingTranscriptService({
@@ -962,10 +952,15 @@ const router = new TeamsCommandRouter({
     }
 
     if (intent === 'qa') {
+      if (!request.graphToken && !graphAccessToken) {
+        return {
+          text: await translateOutgoing(t('auth.signIn'), preferred),
+          metadata: request.signInLink ? { signinLink: request.signInLink } : undefined
+        };
+      }
       const question = nlu?.question ?? englishText;
       const store = selectionStore.get(request.conversationId);
       const selected = store?.items?.[0]?.agendaItem;
-      const graphUserId = useAppOnly ? request.fromUserId || undefined : undefined;
       try {
         const transcriptFromContext = await getTranscriptFromMeetingContext(request);
         if (transcriptFromContext?.raw) {
@@ -978,9 +973,9 @@ const router = new TeamsCommandRouter({
         return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
       }
 
-      const meeting = selected ?? (await findMeetingFromNlu(englishText, nlu, true, graphUserId));
+      const meeting = selected ?? (await findMeetingFromNlu(request, englishText, nlu, true));
       if (meeting) {
-        const { onlineMeetingService, transcriptService } = getMeetingTranscriptService();
+        const { onlineMeetingService, transcriptService } = getMeetingTranscriptService(request);
         let transcript;
         try {
           const transcriptLookup = new MeetingTranscriptService({
@@ -1023,7 +1018,32 @@ class TeamsBot extends TeamsActivityHandler {
       const commandText =
         value?.command === 'select' && value.selection ? `/select ${value.selection}` : undefined;
   const fromAadObjectId = (activity.from as { aadObjectId?: string } | undefined)?.aadObjectId;
-  const request: ChannelRequest = {
+      let graphToken: string | undefined;
+      let signInLink: string | undefined;
+      if (oauthConnection) {
+        const claimsIdentity = context.turnState.get(adapter.BotIdentityKey);
+        if (claimsIdentity) {
+          try {
+            const userTokenClient = await botFrameworkAuthentication.createUserTokenClient(claimsIdentity);
+            const token = await userTokenClient.getUserToken(
+              activity.from?.id ?? '',
+              oauthConnection,
+              activity.channelId ?? '',
+              ''
+            );
+            graphToken = token?.token;
+            if (!graphToken) {
+              const signInResource = await userTokenClient.getSignInResource(oauthConnection, activity, '');
+              signInLink = signInResource?.signInLink;
+            }
+          } catch {
+            graphToken = undefined;
+            signInLink = undefined;
+          }
+        }
+      }
+
+      const request: ChannelRequest = {
         channelId: activity.channelId ?? 'msteams',
         conversationId: activity.conversation?.id ?? '',
         messageId: activity.id ?? '',
@@ -1031,6 +1051,8 @@ class TeamsBot extends TeamsActivityHandler {
         fromUserName: activity.from?.name ?? undefined,
         tenantId: activity.conversation?.tenantId ?? activity.channelData?.tenant?.id,
         text: commandText ?? activity.text ?? '',
+        graphToken,
+        signInLink,
         meetingId:
           (activity.channelData as { meeting?: { id?: string; meetingId?: string } } | undefined)?.meeting?.id ??
           (activity.channelData as { meeting?: { id?: string; meetingId?: string } } | undefined)?.meeting?.meetingId ??
@@ -1061,10 +1083,16 @@ class TeamsBot extends TeamsActivityHandler {
 
       const response = await router.handle(request);
       const metadata = response.metadata?.adaptiveCard;
+      const signIn = response.metadata?.signinLink;
       if (metadata) {
         await context.sendActivity({
           text: response.text,
           attachments: [JSON.parse(metadata)]
+        });
+      } else if (signIn) {
+        await context.sendActivity({
+          text: response.text,
+          attachments: [CardFactory.signinCard(t('auth.signInCta'), signIn)]
         });
       } else {
         await context.sendActivity(response.text);

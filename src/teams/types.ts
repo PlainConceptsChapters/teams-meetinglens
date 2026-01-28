@@ -26,11 +26,13 @@ export interface ChannelRequest {
   locale?: string;
   meetingId?: string;
   meetingJoinUrl?: string;
+  graphToken?: string;
+  signInLink?: string;
 }
 
 export interface ChannelResponse {
   text: string;
-  metadata?: Record<string, string>;
+  metadata?: Record<string, string | undefined>;
 }
 
 export type ChannelCommandHandler = (request: ChannelRequest) => Promise<ChannelResponse>;

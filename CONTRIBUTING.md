@@ -72,7 +72,7 @@ Steps:
      - `BOT_MENTION_TEXT`: bot mention text to strip (e.g., `@meetinglens`).
      - `GRAPH_ACCESS_TOKEN`: delegated Graph access token for agenda search in local dev.
      - Get a token with: `npm run auth:graph-token`
-     - If you do not set `GRAPH_ACCESS_TOKEN`, the bot will use **client credentials** with `GRAPH_APP_SCOPES` (default: `https://graph.microsoft.com/.default`). Ensure application permissions are granted and admin consented.
+     - For Teams SSO, set `BOT_OAUTH_CONNECTION` to the OAuth connection name configured in Azure Bot.
 2. Configure a dev tunnel to expose `http://localhost:3978/api/messages`.
 3. In Azure Bot registration, set the messaging endpoint to your tunnel URL + `/api/messages`.
    - Azure portal -> your Azure Bot resource -> Configuration -> Messaging endpoint.
@@ -89,6 +89,22 @@ Steps:
    - Apps -> Manage your apps -> Upload an app -> Upload a custom app.
    - Select `teamsapp/teamsapp.zip`.
 8. Add the app to a personal chat or team and send a message to verify the bot responds.
+
+### Teams SSO (delegated Graph, recommended)
+To ensure users only access their own data, use delegated Graph via Teams SSO:
+1. In Azure Bot resource -> **Configuration** -> **Add OAuth Connection Settings**.
+2. Provider: **Azure Active Directory v2**.
+3. Fill fields:
+   - Client ID: Entra App ID.
+   - Client secret: secret **value** from Entra -> Certificates & secrets.
+   - Tenant ID: your Entra tenant GUID.
+   - Scopes: `Calendars.Read OnlineMeetings.Read OnlineMeetingTranscript.Read.All User.Read`.
+   - Token Exchange URL: your **Application ID URI** (Entra -> Expose an API), typically `api://<app-id>`.
+4. Note the **OAuth connection name** and set `BOT_OAUTH_CONNECTION` in `.env`.
+5. Update the Teams app manifest `webApplicationInfo` with your **Entra App ID** and **Application ID URI**.
+   - `webApplicationInfo.id`: Entra App ID (same as `TEAMS_BOT_ID`).
+   - `webApplicationInfo.resource`: Application ID URI (set `TEAMS_APP_RESOURCE`).
+6. Rebuild and re-upload the Teams app package.
 
 Notes:
 - If the bot can't be reached, re-check the tunnel URL and Azure Bot messaging endpoint.
