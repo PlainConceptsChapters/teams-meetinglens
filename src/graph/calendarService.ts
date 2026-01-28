@@ -72,7 +72,8 @@ export class CalendarService {
 
     const query: Record<string, string> = {
       startDateTime: options.startDateTime,
-      endDateTime: options.endDateTime
+      endDateTime: options.endDateTime,
+      $select: 'id,subject,start,end,organizer,onlineMeeting,isCancelled'
     };
 
     if (filterParts.length > 0) {

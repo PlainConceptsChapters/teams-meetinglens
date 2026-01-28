@@ -196,6 +196,9 @@ const resolvePreferredLanguage = async (
   }
   const locale = normalizeLanguage(request.locale);
   if (locale) {
+    if (isLikelyEnglishText(request.text)) {
+      return 'en';
+    }
     return locale;
   }
   const service = getTranslationService();
@@ -306,12 +309,17 @@ const runGraphDebug = async (request: ChannelRequest) => {
     return { ok: false, error: message };
   }
   try {
-    const response = await graphClient.get<{ value?: unknown[] }>('/me/calendarView', {
+    const { agendaService } = buildGraphServicesForRequest(request);
+    const agenda = await agendaService.searchAgenda({
       startDateTime: start.toISOString(),
-      endDateTime: end.toISOString()
+      endDateTime: end.toISOString(),
+      includeTranscriptAvailability: true,
+      top: 10
     });
-    const count = response.value?.length ?? 0;
-    return { ok: true, count, start, end };
+    const count = agenda.items.length;
+    const withJoinUrl = agenda.items.filter((item) => Boolean(item.joinUrl)).length;
+    const withTranscript = agenda.items.filter((item) => item.transcriptAvailable).length;
+    return { ok: true, count, start, end, withJoinUrl, withTranscript };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'unknown error';
     return { ok: false, error: message };
@@ -374,6 +382,10 @@ const parseAgendaRange = (text: string): { start: Date; end: Date; remainder: st
   if (relativeWeekday) {
     return relativeWeekday;
   }
+  const relativeDays = parseRelativeDays(tokens, now);
+  if (relativeDays) {
+    return relativeDays;
+  }
   if (tokens.includes('yesterday') || tokens.includes('ayer') || tokens.includes('ieri')) {
     const start = new Date(now);
     start.setDate(start.getDate() - 1);
@@ -407,6 +419,22 @@ const parseAgendaRange = (text: string): { start: Date; end: Date; remainder: st
   const end = new Date(now);
   end.setDate(end.getDate() + 7);
   return { start, end, remainder: text.trim() };
+};
+
+const parseRelativeDays = (text: string, base: Date): { start: Date; end: Date; remainder: string } | undefined => {
+  const match = text.match(/\b(?:last|past)\s+(\d+)\s+days?\b/i);
+  const plain = text.match(/\b(?:last|past)\s+days?\b/i);
+  const count = match ? Number(match[1]) : plain ? 7 : undefined;
+  if (!count || Number.isNaN(count)) {
+    return undefined;
+  }
+  const end = new Date(base);
+  end.setHours(23, 59, 59, 999);
+  const start = new Date(end);
+  start.setDate(start.getDate() - count);
+  start.setHours(0, 0, 0, 0);
+  const remainder = match ? text.replace(match[0], '').trim() : text.replace(plain?.[0] ?? '', '').trim();
+  return { start, end: new Date(end.getTime() + 1), remainder };
 };
 
 const parseRelativeWeekday = (text: string, base: Date): { start: Date; end: Date; remainder: string } | undefined => {
@@ -720,7 +748,6 @@ const handleAgendaRequest = async (request: ChannelRequest) => {
   const preferred = await resolvePreferredLanguage(request, language);
   const userText = remainder || request.text || '';
   const englishText = await translateToEnglish(userText, preferred);
-  const includeAll = englishText.toLowerCase().includes('all');
   const nlu = await getNluService()?.parse(englishText, new Date(), systemTimeZone);
   if (!request.graphToken && !graphAccessToken) {
     return {
@@ -752,10 +779,10 @@ const handleAgendaRequest = async (request: ChannelRequest) => {
       text: await translateOutgoing(t('agenda.none', { range: formatRangeLabel(range) }), preferred)
     };
   }
-  const filtered = includeAll ? agenda.items : agenda.items.filter((item) => item.transcriptAvailable);
+  const filtered = agenda.items.filter((item) => item.transcriptAvailable);
   if (!filtered.length) {
     return {
-      text: await translateOutgoing(includeAll ? t('agenda.none', { range: formatRangeLabel(range) }) : t('transcript.notAvailable'), preferred)
+      text: await translateOutgoing(t('agenda.noneWithTranscript', { range: formatRangeLabel(range) }), preferred)
     };
   }
   const formatted = filtered.map((item, index) => {
@@ -821,7 +848,9 @@ const router = new TeamsCommandRouter({
           text: await translateOutgoing(
             t('debug.graphOk', {
               count: String(debug.count ?? 0),
-              range: `${debug.start?.toISOString()} -> ${debug.end?.toISOString()}`
+              range: `${debug.start?.toISOString()} -> ${debug.end?.toISOString()}`,
+              withJoinUrl: String(debug.withJoinUrl ?? 0),
+              withTranscript: String(debug.withTranscript ?? 0)
             }),
             language
           )
@@ -1041,7 +1070,9 @@ const router = new TeamsCommandRouter({
         text: await translateOutgoing(
           t('debug.graphOk', {
             count: String(debug.count ?? 0),
-            range: `${debug.start?.toISOString()} -> ${debug.end?.toISOString()}`
+            range: `${debug.start?.toISOString()} -> ${debug.end?.toISOString()}`,
+            withJoinUrl: String(debug.withJoinUrl ?? 0),
+            withTranscript: String(debug.withTranscript ?? 0)
           }),
           preferred
         )
@@ -1240,7 +1271,7 @@ class TeamsBot extends TeamsActivityHandler {
           })),
         value,
         timestamp: activity.timestamp?.toISOString(),
-        locale: activity.locale ?? undefined
+        locale: activity.locale ?? (activity.channelData as { locale?: string } | undefined)?.locale ?? undefined
       };
 
       if (pendingMagicCode) {

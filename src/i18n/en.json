@@ -3,7 +3,7 @@
     "title": "What I can do:",
     "overview": "- Show your agenda and highlight meetings with transcripts\n- Let you pick a meeting and summarize it\n- Answer questions about a meeting transcript\n- Reply in your language (auto-detected)\n- You can ask in natural language (for example: \"meetings from last Monday\")\n- Commands start with / and are not translated",
     "commandsTitle": "Commands:",
-    "agenda": "/agenda [today|tomorrow|week|yesterday] [keyword] - list meetings",
+    "agenda": "/agenda [today|tomorrow|week|yesterday|last 7 days] [keyword] - list meetings",
     "select": "/select <number> - choose a meeting from the list",
     "summary": "/summary [lang] - summarize the selected meeting",
     "qa": "/qa [lang] <question> - ask about the selected meeting",
@@ -24,6 +24,7 @@
     "title": "Your upcoming meetings",
     "intro": "Here are your meetings.",
     "none": "No meetings found for that range ({range}).",
+    "noneWithTranscript": "No meetings with transcripts found for that range ({range}).",
     "cannotAccess": "I couldn't access your agenda yet. {message}",
     "transcriptAvailable": "Transcript available",
     "noTranscript": "No transcript",
@@ -61,7 +62,7 @@
     "tenant": "Tenant ID: {value}",
     "graphToken": "Graph token: {value}",
     "oauth": "OAuth connection: {value}",
-    "graphOk": "Graph access OK. Calendar items (last 7 days to next 1 day): {count}. Range: {range}",
+    "graphOk": "Graph access OK. Calendar items (last 7 days to next 1 day): {count}. With join URL: {withJoinUrl}. With transcripts: {withTranscript}. Range: {range}",
     "graphError": "Graph access failed: {message}"
   }
 }
