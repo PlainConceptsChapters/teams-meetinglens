@@ -20,7 +20,8 @@ import {
   SummarizationService,
   TranscriptService
 } from '../src/index.js';
-import { LanguageCode, extractLanguageToken, languageNames, resolveLanguage } from '../src/teams/language.js';
+import { TranslationService } from '../src/llm/translationService.js';
+import { LanguageCode, extractLanguageToken, languageNames, normalizeLanguage } from '../src/teams/language.js';
 import { TeamsCommandRouter } from '../src/teams/router.js';
 import { ChannelRequest } from '../src/teams/types.js';
 
@@ -89,14 +90,96 @@ const buildLlmClient = () => {
   });
 };
 
+const getTranslationService = (): TranslationService | undefined => {
+  if (translationService) {
+    return translationService;
+  }
+  try {
+    translationService = new TranslationService({ client: buildLlmClient() });
+    return translationService;
+  } catch {
+    return undefined;
+  }
+};
+
+const protectCommandTokens = (text: string) => {
+  const tokens: string[] = [];
+  const protectedText = text.replace(/\/[a-z0-9_-]+/gi, (match) => {
+    const key = `__CMD${tokens.length}__`;
+    tokens.push(match);
+    return key;
+  });
+  return { protectedText, tokens };
+};
+
+const restoreCommandTokens = (text: string, tokens: string[]) => {
+  return tokens.reduce((value, token, index) => value.replaceAll(`__CMD${index}__`, token), text);
+};
+
+const translateOutgoing = async (text: string, language: LanguageCode): Promise<string> => {
+  if (!text.trim() || language === 'en') {
+    return text;
+  }
+  const service = getTranslationService();
+  if (!service) {
+    return text;
+  }
+  const protectedText = protectCommandTokens(text);
+  const translated = await service.translate(protectedText.protectedText, language);
+  return restoreCommandTokens(translated, protectedText.tokens);
+};
+
+const translateToEnglish = async (text: string, language: LanguageCode): Promise<string> => {
+  if (!text.trim() || language === 'en') {
+    return text;
+  }
+  const service = getTranslationService();
+  if (!service) {
+    return text;
+  }
+  const protectedText = protectCommandTokens(text);
+  const translated = await service.translate(protectedText.protectedText, 'en');
+  return restoreCommandTokens(translated, protectedText.tokens);
+};
+
+const resolvePreferredLanguage = async (
+  request: ChannelRequest,
+  explicit?: LanguageCode
+): Promise<LanguageCode> => {
+  if (explicit) {
+    languageStore.set(request.conversationId, explicit);
+    return explicit;
+  }
+  const stored = languageStore.get(request.conversationId);
+  if (stored) {
+    return stored;
+  }
+  const locale = normalizeLanguage(request.locale);
+  if (locale) {
+    return locale;
+  }
+  const service = getTranslationService();
+  if (service && request.text) {
+    try {
+      const detected = normalizeLanguage(await service.detectLanguage(request.text)) ?? 'en';
+      languageStore.set(request.conversationId, detected);
+      return detected;
+    } catch {
+      return 'en';
+    }
+  }
+  return 'en';
+};
+
 
 type TranslationCatalog = Record<string, unknown>;
-const languageStore = new Map<string, SupportedLanguage>();
+const languageStore = new Map<string, LanguageCode>();
 const agendaStore = new Map<string, AgendaService>();
 const selectionStore = new Map<
   string,
   { items: { index: number; title: string; details: string; agendaItem: import('../src/agenda/types.js').AgendaItem }[] }
 >();
+let translationService: TranslationService | undefined;
 
 const getAgendaService = (): AgendaService => {
   const existing = agendaStore.get('default');
@@ -113,10 +196,7 @@ const getMeetingTranscriptService = () => {
   return { onlineMeetingService, transcriptService };
 };
 
-const buildAgendaCard = (
-  language: SupportedLanguage,
-  items: { index: number; title: string; details: string }[]
-) => {
+const buildAgendaCard = (title: string, items: { index: number; title: string; details: string }[]) => {
   return {
     contentType: 'application/vnd.microsoft.card.adaptive',
     content: {
@@ -125,7 +205,7 @@ const buildAgendaCard = (
       body: [
         {
           type: 'TextBlock',
-          text: t(language, 'agenda.title'),
+          text: title,
           weight: 'Bolder',
           size: 'Medium'
         },
@@ -170,30 +250,21 @@ const isAgendaIntent = (text: string): boolean => {
   );
 };
 
-const loadTranslations = async (): Promise<Record<SupportedLanguage, TranslationCatalog>> => {
+const loadTranslations = async (): Promise<TranslationCatalog> => {
   const root = path.resolve(process.cwd(), 'src', 'i18n');
-  const [enRaw, esRaw, roRaw] = await Promise.all([
-    fs.readFile(path.join(root, 'en.json'), 'utf8'),
-    fs.readFile(path.join(root, 'es.json'), 'utf8'),
-    fs.readFile(path.join(root, 'ro.json'), 'utf8')
-  ]);
-  return {
-    en: JSON.parse(enRaw) as TranslationCatalog,
-    es: JSON.parse(esRaw) as TranslationCatalog,
-    ro: JSON.parse(roRaw) as TranslationCatalog
-  };
+  const enRaw = await fs.readFile(path.join(root, 'en.json'), 'utf8');
+  return JSON.parse(enRaw) as TranslationCatalog;
 };
 
 const translations = await loadTranslations();
 
-const t = (language: SupportedLanguage, keyPath: string, vars?: Record<string, string>): string => {
-  const source = translations[language] ?? translations.en;
+const t = (keyPath: string, vars?: Record<string, string>): string => {
   const value = keyPath.split('.').reduce<unknown>((acc, key) => {
     if (acc && typeof acc === 'object' && key in (acc as Record<string, unknown>)) {
       return (acc as Record<string, unknown>)[key];
     }
     return undefined;
-  }, source);
+  }, translations);
   if (typeof value !== 'string') {
     return keyPath;
   }
@@ -205,23 +276,23 @@ const t = (language: SupportedLanguage, keyPath: string, vars?: Record<string, s
   }, value);
 };
 
-const buildHelpText = (language: SupportedLanguage): string => {
+const buildHelpText = (): string => {
   return [
-    t(language, 'help.title'),
-    t(language, 'help.overview'),
+    t('help.title'),
+    t('help.overview'),
     '',
-    t(language, 'help.commandsTitle'),
-    t(language, 'help.agenda'),
-    t(language, 'help.select'),
-    t(language, 'help.summary'),
-    t(language, 'help.qa'),
-    t(language, 'help.language'),
-    t(language, 'help.how'),
-    t(language, 'help.contribute'),
-    t(language, 'help.help'),
+    t('help.commandsTitle'),
+    t('help.agenda'),
+    t('help.select'),
+    t('help.summary'),
+    t('help.qa'),
+    t('help.language'),
+    t('help.how'),
+    t('help.contribute'),
+    t('help.help'),
     '',
-    t(language, 'help.examplesTitle'),
-    t(language, 'help.examples')
+    t('help.examplesTitle'),
+    t('help.examples')
   ].join('\n');
 };
 
@@ -268,12 +339,12 @@ const parseAgendaRange = (text: string): { start: Date; end: Date; remainder: st
   return { start, end, remainder: text.trim() };
 };
 
-const formatAgendaItem = (language: SupportedLanguage, item: import('../src/agenda/types.js').AgendaItem) => {
-  const subject = item.subject ?? t(language, 'agenda.untitled');
-  const start = item.start ? new Date(item.start).toLocaleString() : t(language, 'agenda.unknownTime');
+const formatAgendaItem = (item: import('../src/agenda/types.js').AgendaItem) => {
+  const subject = item.subject ?? t('agenda.untitled');
+  const start = item.start ? new Date(item.start).toLocaleString() : t('agenda.unknownTime');
   const end = item.end ? new Date(item.end).toLocaleString() : '';
-  const transcript = item.transcriptAvailable ? t(language, 'agenda.transcriptAvailable') : t(language, 'agenda.noTranscript');
-  const organizer = item.organizerEmail ? t(language, 'agenda.organizer', { organizer: item.organizerEmail }) : '';
+  const transcript = item.transcriptAvailable ? t('agenda.transcriptAvailable') : t('agenda.noTranscript');
+  const organizer = item.organizerEmail ? t('agenda.organizer', { organizer: item.organizerEmail }) : '';
   const details = [start, end && `- ${end}`, organizer, transcript]
     .filter(Boolean)
     .join(' ');
@@ -298,34 +369,6 @@ const isHelpIntent = (text: string): boolean => {
   return lower.includes('help') || lower.includes('ajutor') || lower.includes('ayuda');
 };
 
-const inferLanguageFromText = (text: string): SupportedLanguage | undefined => {
-  const lower = text.toLowerCase();
-  if (
-    lower.includes('ayuda') ||
-    lower.includes('agenda') ||
-    lower.includes('reuniones') ||
-    lower.includes('resumen') ||
-    lower.includes('pregunta') ||
-    lower.includes('como')
-  ) {
-    return 'es';
-  }
-  if (
-    lower.includes('ajutor') ||
-    lower.includes('agenda mea') ||
-    lower.includes('intalniri') ||
-    lower.includes('rezumat') ||
-    lower.includes('intrebare') ||
-    lower.includes('cum')
-  ) {
-    return 'ro';
-  }
-  if (lower.includes('help') || lower.includes('agenda') || lower.includes('summary') || lower.includes('question')) {
-    return 'en';
-  }
-  return undefined;
-};
-
 const isContributeIntent = (text: string): boolean => {
   const lower = text.toLowerCase();
   return (
@@ -339,42 +382,55 @@ const isContributeIntent = (text: string): boolean => {
 
 const handleAgendaRequest = async (request: ChannelRequest) => {
   const { language, remainder } = extractLanguageToken(request.text ?? '');
-  const preferred = resolveLanguage(request, language, languageStore);
-  const range = parseAgendaRange(remainder);
+  const preferred = await resolvePreferredLanguage(request, language);
+  const userText = remainder || request.text || '';
+  const englishText = await translateToEnglish(userText, preferred);
+  const range = parseAgendaRange(englishText);
+  const subjectQuery = remainder || range.remainder;
   const agendaService = getAgendaService();
   let agenda;
   try {
     agenda = await agendaService.searchAgenda({
       ...formatDateRange(range),
-      subjectContains: range.remainder || undefined,
+      subjectContains: subjectQuery || undefined,
       includeTranscriptAvailability: true,
       top: 10
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Agenda search failed.';
     return {
-      text: t(preferred, 'agenda.cannotAccess', { message })
+      text: await translateOutgoing(t('agenda.cannotAccess', { message }), preferred)
     };
   }
   if (!agenda.items.length) {
     return {
-      text: t(preferred, 'agenda.none')
+      text: await translateOutgoing(t('agenda.none'), preferred)
     };
   }
   const filtered = agenda.items.filter((item) => item.transcriptAvailable);
   if (!filtered.length) {
     return {
-      text: t(preferred, 'transcript.notAvailable')
+      text: await translateOutgoing(t('transcript.notAvailable'), preferred)
     };
   }
   const formatted = filtered.map((item, index) => {
-    const display = formatAgendaItem(preferred, item);
+    const display = formatAgendaItem(item);
     return { index: index + 1, title: display.title, details: display.details, agendaItem: item };
   });
-  selectionStore.set(request.conversationId, { items: formatted });
+  const untitled = t('agenda.untitled');
+  const localizedItems = await Promise.all(
+    formatted.map(async (item) => ({
+      ...item,
+      title: item.title === untitled ? await translateOutgoing(item.title, preferred) : item.title,
+      details: await translateOutgoing(item.details, preferred)
+    }))
+  );
+  selectionStore.set(request.conversationId, { items: localizedItems });
   return {
-    text: t(preferred, 'agenda.intro'),
-    metadata: { adaptiveCard: JSON.stringify(buildAgendaCard(preferred, formatted)) }
+    text: await translateOutgoing(t('agenda.intro'), preferred),
+    metadata: {
+      adaptiveCard: JSON.stringify(buildAgendaCard(await translateOutgoing(t('agenda.title'), preferred), localizedItems))
+    }
   };
 };
 
@@ -384,22 +440,27 @@ const router = new TeamsCommandRouter({
     {
       command: 'help',
       handler: async (request) => {
-        const language = resolveLanguage(request, undefined, languageStore);
-        return { text: buildHelpText(language) };
+        const language = await resolvePreferredLanguage(request);
+        return { text: await translateOutgoing(buildHelpText(), language) };
       }
     },
     {
       command: 'how',
       handler: async (request) => {
-        const language = resolveLanguage(request, undefined, languageStore);
-        return { text: t(language, 'howItWorks') };
+        const language = await resolvePreferredLanguage(request);
+        return { text: await translateOutgoing(t('howItWorks'), language) };
       }
     },
     {
       command: 'contribute',
       handler: async (request) => {
-        const language = resolveLanguage(request, undefined, languageStore);
-        return { text: t(language, 'contribute', { repoUrl: 'https://github.com/PlainConceptsGC/teams-meetinglens' }) };
+        const language = await resolvePreferredLanguage(request);
+        return {
+          text: await translateOutgoing(
+            t('contribute', { repoUrl: 'https://github.com/PlainConceptsGC/teams-meetinglens' }),
+            language
+          )
+        };
       }
     },
     {
@@ -407,10 +468,12 @@ const router = new TeamsCommandRouter({
       handler: async (request) => {
         const { language } = extractLanguageToken(request.text ?? '');
         if (!language) {
-          return { text: t('en', 'languagePrompt') };
+          const preferred = await resolvePreferredLanguage(request);
+          return { text: await translateOutgoing(t('languagePrompt'), preferred) };
         }
         languageStore.set(request.conversationId, language);
-        return { text: t(language, 'languageSet', { languageName: languageNames[language] }) };
+        const languageLabel = languageNames[language] ?? language;
+        return { text: await translateOutgoing(t('languageSet', { languageName: languageLabel }), language) };
       }
     },
     {
@@ -423,37 +486,39 @@ const router = new TeamsCommandRouter({
         const selection = request.text.trim();
         const store = selectionStore.get(request.conversationId);
         if (!store) {
-          const language = resolveLanguage(request, undefined, languageStore);
-          return { text: t(language, 'selection.needAgenda') };
+          const language = await resolvePreferredLanguage(request);
+          return { text: await translateOutgoing(t('selection.needAgenda'), language) };
         }
         const index = Number(selection);
         if (!Number.isFinite(index) || index < 1 || index > store.items.length) {
-          const language = resolveLanguage(request, undefined, languageStore);
-          return { text: t(language, 'selection.invalid') };
+          const language = await resolvePreferredLanguage(request);
+          return { text: await translateOutgoing(t('selection.invalid'), language) };
         }
         const selected = store.items[index - 1];
         selectionStore.set(request.conversationId, { items: [selected] });
-        const language = resolveLanguage(request, undefined, languageStore);
-        return { text: t(language, 'selection.selected', { title: selected.title }) };
+        const language = await resolvePreferredLanguage(request);
+        return {
+          text: await translateOutgoing(t('selection.selected', { title: selected.title }), language)
+        };
       }
     },
     {
       command: 'summary',
       handler: async (request) => {
         const { language } = extractLanguageToken(request.text ?? '');
-        const preferred = resolveLanguage(request, language, languageStore);
+        const preferred = await resolvePreferredLanguage(request, language);
         const store = selectionStore.get(request.conversationId);
         if (!store || !store.items.length) {
           const transcript = await buildTranscript();
           if (!transcript.raw) {
             return {
-              text: t(preferred, 'transcript.notConfigured')
+              text: await translateOutgoing(t('transcript.notConfigured'), preferred)
             };
           }
           const client = buildLlmClient();
           const summarizer = new SummarizationService({ client });
-          const result = await summarizer.summarize(transcript, { language: preferred });
-          return { text: result.summary };
+          const result = await summarizer.summarize(transcript, { language: 'en' });
+          return { text: await translateOutgoing(result.summary, preferred) };
         }
 
         const selected = store.items[0].agendaItem;
@@ -467,32 +532,34 @@ const router = new TeamsCommandRouter({
           transcript = await transcriptLookup.getTranscriptForAgendaItem(selected);
         } catch {
           return {
-            text: t(preferred, 'transcript.notAvailable')
+            text: await translateOutgoing(t('transcript.notAvailable'), preferred)
           };
         }
         const client = buildLlmClient();
         const summarizer = new SummarizationService({ client });
-        const result = await summarizer.summarize(transcript, { language: preferred });
-        return { text: result.summary };
+        const result = await summarizer.summarize(transcript, { language: 'en' });
+        return { text: await translateOutgoing(result.summary, preferred) };
       }
     },
     {
       command: 'qa',
       handler: async (request) => {
         const { language, remainder } = extractLanguageToken(request.text ?? '');
-        const preferred = resolveLanguage(request, language, languageStore);
+        const preferred = await resolvePreferredLanguage(request, language);
+        const question = remainder || request.text;
+        const englishQuestion = await translateToEnglish(question, preferred);
         const store = selectionStore.get(request.conversationId);
         if (!store || !store.items.length) {
           const transcript = await buildTranscript();
           if (!transcript.raw) {
             return {
-              text: t(preferred, 'transcript.notConfigured')
+              text: await translateOutgoing(t('transcript.notConfigured'), preferred)
             };
           }
           const client = buildLlmClient();
           const qa = new QaService({ client });
-          const result = await qa.answerQuestion(remainder || request.text, transcript, { language: preferred });
-          return { text: result.answer };
+          const result = await qa.answerQuestion(englishQuestion, transcript, { language: 'en' });
+          return { text: await translateOutgoing(result.answer, preferred) };
         }
         const selected = store.items[0].agendaItem;
         const { onlineMeetingService, transcriptService } = getMeetingTranscriptService();
@@ -505,44 +572,47 @@ const router = new TeamsCommandRouter({
           transcript = await transcriptLookup.getTranscriptForAgendaItem(selected);
         } catch {
           return {
-            text: t(preferred, 'transcript.notAvailable')
+            text: await translateOutgoing(t('transcript.notAvailable'), preferred)
           };
         }
         const client = buildLlmClient();
         const qa = new QaService({ client });
-        const result = await qa.answerQuestion(remainder || request.text, transcript, { language: preferred });
-        return { text: result.answer };
+        const result = await qa.answerQuestion(englishQuestion, transcript, { language: 'en' });
+        return { text: await translateOutgoing(result.answer, preferred) };
       }
     }
   ],
   defaultHandler: async (request) => {
-    if (isAgendaIntent(request.text ?? '')) {
+    const { language } = extractLanguageToken(request.text ?? '');
+    const preferred = await resolvePreferredLanguage(request, language);
+    const englishText = await translateToEnglish(request.text ?? '', preferred);
+    if (isAgendaIntent(englishText)) {
       return handleAgendaRequest(request);
     }
-    if (isHowIntent(request.text ?? '')) {
-      const language = resolveLanguage(request, inferLanguageFromText(request.text ?? ''), languageStore);
-      return { text: t(language, 'howItWorks') };
+    if (isHowIntent(englishText)) {
+      return { text: await translateOutgoing(t('howItWorks'), preferred) };
     }
-    if (isHelpIntent(request.text ?? '')) {
-      const language = resolveLanguage(request, inferLanguageFromText(request.text ?? ''), languageStore);
-      return { text: buildHelpText(language) };
+    if (isHelpIntent(englishText)) {
+      return { text: await translateOutgoing(buildHelpText(), preferred) };
     }
-    if (isContributeIntent(request.text ?? '')) {
-      const language = resolveLanguage(request, inferLanguageFromText(request.text ?? ''), languageStore);
-      return { text: t(language, 'contribute', { repoUrl: 'https://github.com/PlainConceptsGC/teams-meetinglens' }) };
+    if (isContributeIntent(englishText)) {
+      return {
+        text: await translateOutgoing(
+          t('contribute', { repoUrl: 'https://github.com/PlainConceptsGC/teams-meetinglens' }),
+          preferred
+        )
+      };
     }
-    const { language } = extractLanguageToken(request.text ?? '');
-    const preferred = resolveLanguage(request, language, languageStore);
     const transcript = await buildTranscript();
     if (!transcript.raw) {
       return {
-        text: t(preferred, 'transcript.notConfigured')
+        text: await translateOutgoing(t('transcript.notConfigured'), preferred)
       };
     }
     const client = buildLlmClient();
     const qa = new QaService({ client });
-    const result = await qa.answerQuestion(request.text, transcript, { language: preferred });
-    return { text: result.answer };
+    const result = await qa.answerQuestion(englishText, transcript, { language: 'en' });
+    return { text: await translateOutgoing(result.answer, preferred) };
   }
 });
 

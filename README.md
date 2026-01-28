@@ -3,7 +3,7 @@
 AI-powered Microsoft Teams bot that retrieves meetings and transcripts via Microsoft Graph and generates summaries, key points, and answers using Azure OpenAI.
 
 ## Overview
-teams-meetinglens is an enterprise-grade Microsoft Teams bot built for secure meeting discovery, transcript access (when permitted), and natural-language summarization and Q&A. The implementation will be in TypeScript/Node.js, but this repository currently contains documentation only.
+teams-meetinglens is an enterprise-grade Microsoft Teams bot built for secure meeting discovery, transcript access (when permitted), and natural-language summarization and Q&A. The implementation is in TypeScript/Node.js.
 
 ## Core capabilities
 - Calendar search
@@ -56,7 +56,7 @@ LOG_LEVEL=
 - End-to-end Teams UI automation tests
 - Cross-tenant meeting sharing or transcript export
 - Long-term transcript storage or indexing
-- Multi-language summarization (beyond English)
+- Human-curated localization beyond English (responses are auto-translated)
 
 ## Roadmap
 See `BACKLOG.md` for milestones, epics, and status. The backlog is the single source of truth.
@@ -122,15 +122,16 @@ npm run teamsapp:pack
 ```
 
 ## Localization (i18n)
-User-facing bot text is stored in `src/i18n/`:
-- `src/i18n/en.json`
-- `src/i18n/es.json`
-- `src/i18n/ro.json`
+User-facing bot text is stored in English only (`src/i18n/en.json`). At runtime the bot detects the user's language and uses Azure OpenAI to translate replies back to that language. Use `/language <code>` to override detection (example: `es`, `ro`, `fr`).
 
-To add a new language:
-1. Add a new JSON file in `src/i18n/` with the same keys.
-2. Update the language list in `scripts/bot-host.ts` if you want it selectable.
-3. Run tests to ensure all required keys are present.
+Commands always start with `/` and are not translated (for example, `/summary`, `/qa`, `/agenda`).
+
+To update or extend copy:
+1. Edit `src/i18n/en.json` with the English source text.
+2. Run tests to ensure all required keys are present.
+
+Note:
+- Translation depends on Azure OpenAI being configured for the bot host.
 
 Notes:
 - `auth:code` completes an auth-code flow and calls `/me/calendarView`.

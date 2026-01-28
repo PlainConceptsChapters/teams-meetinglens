@@ -93,6 +93,10 @@ Notes:
 - If the bot can't be reached, re-check the tunnel URL and Azure Bot messaging endpoint.
 - Make sure the App ID in the manifest matches the Azure Bot/Entra App ID.
 
+## Localization
+Bot text is authored in English only (`src/i18n/en.json`). The bot detects the user's language and uses Azure OpenAI to translate responses at runtime. Use `/language <code>` to override detection (example: `es`, `ro`, `fr`).
+Commands always start with `/` and are not translated (for example, `/summary`, `/qa`, `/agenda`).
+
 ## Related docs
 - `docs/bot-runtime.md`
 - `docs/azure-bot.md`

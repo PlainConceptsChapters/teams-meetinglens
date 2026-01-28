@@ -51,16 +51,10 @@ const requiredKeys = [
 describe('i18n catalogs', () => {
   it('contain all required keys', async () => {
     const root = path.resolve(process.cwd(), 'src', 'i18n');
-    const [en, es, ro] = await Promise.all([
-      readJson(path.join(root, 'en.json')),
-      readJson(path.join(root, 'es.json')),
-      readJson(path.join(root, 'ro.json'))
-    ]);
+    const en = await readJson(path.join(root, 'en.json'));
 
     for (const key of requiredKeys) {
       expect(get(en, key)).toBeTypeOf('string');
-      expect(get(es, key)).toBeTypeOf('string');
-      expect(get(ro, key)).toBeTypeOf('string');
     }
   });
 });
