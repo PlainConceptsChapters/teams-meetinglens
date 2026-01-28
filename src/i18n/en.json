@@ -1,0 +1,75 @@
+{
+  "help": {
+    "title": "What I can do:",
+    "overview": "- Show your agenda and highlight meetings with transcripts\n- Let you pick a meeting and summarize it\n- Answer questions about a meeting transcript\n- Reply in your language (auto-detected)\n- You can ask in natural language (for example: \"meetings from last Monday\")\n- Commands start with / and are not translated",
+    "commandsTitle": "Commands:",
+    "agenda": "/agenda [today|tomorrow|week|yesterday|last 7 days] [keyword] - list meetings",
+    "select": "/select <number> - choose a meeting from the list",
+    "summary": "/summary [lang] - summarize the selected meeting",
+    "qa": "/qa [lang] <question> - ask about the selected meeting",
+    "language": "/language <code> - set your language (example: en, es, ro)",
+    "how": "/how - how I work and what data I use",
+    "contribute": "/contribute - how to contribute and repo link",
+    "help": "/help - show this message",
+    "whoami": "/whoami - show debug info (token + tenant)",
+    "graphdebug": "/graphdebug - test Graph access",
+    "logs": "/logs on|off - toggle debug logs",
+    "examplesTitle": "Examples:",
+    "examples": "- check my agenda\n- /agenda today design\n- /select 2\n- /summary\n- /qa what did we decide?\n- /language es\n- /contribute"
+  },
+  "howItWorks": "I use your calendar to list meetings, then look for meeting transcripts. If a meeting has a transcript, I can summarize it or answer questions. If no transcript exists, I will tell you.",
+  "contribute": "To contribute, visit the Plain Concepts GitHub repo: {repoUrl}",
+  "languageSet": "Language set to {languageName}.",
+  "languagePrompt": "Please specify a language code (example: en, es, ro).",
+  "agenda": {
+    "title": "Your upcoming meetings",
+    "intro": "Here are your meetings.",
+    "none": "No meetings found for that range ({range}).",
+    "noneWithTranscript": "No meetings with transcripts found for that range ({range}).",
+    "cannotAccess": "I couldn't access your agenda yet. {message}",
+    "transcriptAvailable": "Transcript available",
+    "noTranscript": "No transcript",
+    "organizer": "Organizer: {organizer}",
+    "untitled": "Untitled meeting",
+    "unknownTime": "Unknown time"
+  },
+  "selection": {
+    "needAgenda": "Please run /agenda first.",
+    "invalid": "Invalid selection. Choose one of the listed numbers.",
+    "selected": "Selected: {title}"
+  },
+  "transcript": {
+    "notConfigured": "Transcript not configured.",
+    "notAvailable": "No transcript available for that meeting."
+  },
+  "meeting": {
+    "notFound": "I couldn't find a matching meeting."
+  },
+  "fallback": {
+    "unknown": "I can help with your agenda, meeting summaries, or questions. Try: \"show my meetings from last Monday\"."
+  },
+  "date": {
+    "today": "Today is {date}."
+  },
+  "auth": {
+    "signIn": "Please sign in so I can access your agenda and transcripts.",
+    "signInCta": "Sign in",
+    "codeInvalid": "I couldn't verify that code. Please try signing in again.",
+    "signedIn": "You're signed in. Ask me about your meetings."
+  },
+  "debug": {
+    "title": "Debug info:",
+    "user": "User ID: {value}",
+    "tenant": "Tenant ID: {value}",
+    "graphToken": "Graph token: {value}",
+    "oauth": "OAuth connection: {value}",
+    "graphOk": "Graph access OK. Calendar items (last 7 days to next 1 day): {count}. With join URL: {withJoinUrl}. With transcripts: {withTranscript}. Range: {range}",
+    "graphError": "Graph access failed: {message}"
+  },
+  "logs": {
+    "enabled": "Debug logs enabled for this chat.",
+    "disabled": "Debug logs disabled for this chat.",
+    "statusOn": "Debug logs are currently ON.",
+    "statusOff": "Debug logs are currently OFF."
+  }
+}

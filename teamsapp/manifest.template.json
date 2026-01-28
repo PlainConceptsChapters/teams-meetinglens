@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.24/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.24",
+  "version": "1.0.0",
+  "id": "${TEAMS_APP_ID}",
+  "developer": {
+    "name": "Plain Concepts",
+    "websiteUrl": "https://plainconcepts.com",
+    "privacyUrl": "https://plainconcepts.com/privacy",
+    "termsOfUseUrl": "https://plainconcepts.com/terms"
+  },
+  "name": {
+    "short": "MeetingLens",
+    "full": "MeetingLens"
+  },
+  "description": {
+    "short": "MeetingLens bot",
+    "full": "MeetingLens Teams bot for meeting summaries and Q&A."
+  },
+  "accentColor": "#0A6EFF",
+  "icons": {
+    "outline": "outline.png",
+    "color": "color.png"
+  },
+  "bots": [
+    {
+      "botId": "${TEAMS_BOT_ID}",
+      "scopes": ["personal"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity"],
+  "webApplicationInfo": {
+    "id": "${TEAMS_BOT_ID}",
+    "resource": "${TEAMS_APP_RESOURCE}"
+  }
+}

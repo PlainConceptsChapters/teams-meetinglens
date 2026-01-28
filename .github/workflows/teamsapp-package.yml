@@ -1,0 +1,25 @@
+name: teamsapp-package
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run teamsapp:pack
+        env:
+          TEAMS_APP_ID: ${{ secrets.TEAMS_APP_ID }}
+          TEAMS_BOT_ID: ${{ secrets.TEAMS_BOT_ID }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: teamsapp-zip
+          path: teamsapp/teamsapp.zip
