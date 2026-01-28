@@ -24,6 +24,7 @@ export interface MeetingIdentity {
   end?: string;
   organizerEmail?: string;
   joinUrl?: string;
+  onlineMeetingId?: string;
 }
 
 export interface MeetingResolveRequest {

@@ -115,10 +115,22 @@ Commands:
 ```text
 npm run auth:code
 npm run auth:transcript
+npm run auth:graph-token
 npm run llm:smoke
 npm run bot:dev
 npm run teamsapp:pack
 ```
+
+## Localization (i18n)
+User-facing bot text is stored in `src/i18n/`:
+- `src/i18n/en.json`
+- `src/i18n/es.json`
+- `src/i18n/ro.json`
+
+To add a new language:
+1. Add a new JSON file in `src/i18n/` with the same keys.
+2. Update the language list in `scripts/bot-host.ts` if you want it selectable.
+3. Run tests to ensure all required keys are present.
 
 Notes:
 - `auth:code` completes an auth-code flow and calls `/me/calendarView`.

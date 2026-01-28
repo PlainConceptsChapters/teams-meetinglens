@@ -21,6 +21,7 @@ export interface ChannelRequest {
   text: string;
   attachments?: ChannelAttachment[];
   mentions?: ChannelMention[];
+  value?: unknown;
   timestamp?: string;
   locale?: string;
 }

@@ -1,0 +1,41 @@
+{
+  "help": {
+    "title": "What I can do:",
+    "overview": "- Show your agenda and highlight meetings with transcripts\n- Let you pick a meeting and summarize it\n- Answer questions about a meeting transcript\n- Work in English, Spanish, or Romanian",
+    "commandsTitle": "Commands:",
+    "agenda": "/agenda [today|tomorrow|week|yesterday] [keyword] - list meetings",
+    "select": "/select <number> - choose a meeting from the list",
+    "summary": "/summary [lang] - summarize the selected meeting",
+    "qa": "/qa [lang] <question> - ask about the selected meeting",
+    "language": "/language <en|es|ro> - set your language",
+    "how": "/how - how I work and what data I use",
+    "contribute": "/contribute - how to contribute and repo link",
+    "help": "/help - show this message",
+    "examplesTitle": "Examples:",
+    "examples": "- check my agenda\n- /agenda today design\n- /select 2\n- /summary es\n- /qa ro what did we decide?\n- /contribute"
+  },
+  "howItWorks": "I use your calendar to list meetings, then look for meeting transcripts. If a meeting has a transcript, I can summarize it or answer questions. If no transcript exists, I will tell you.",
+  "contribute": "To contribute, visit the Plain Concepts GitHub repo: {repoUrl}"
+  "languageSet": "Language set to {languageName}.",
+  "languagePrompt": "Please specify a language: en, es, or ro.",
+  "agenda": {
+    "title": "Your upcoming meetings",
+    "intro": "Here are your meetings.",
+    "none": "No meetings found for that range.",
+    "cannotAccess": "I couldn't access your agenda yet. {message}",
+    "transcriptAvailable": "Transcript available",
+    "noTranscript": "No transcript",
+    "organizer": "Organizer: {organizer}",
+    "untitled": "Untitled meeting",
+    "unknownTime": "Unknown time"
+  },
+  "selection": {
+    "needAgenda": "Please run /agenda first.",
+    "invalid": "Invalid selection. Choose one of the listed numbers.",
+    "selected": "Selected: {title}"
+  },
+  "transcript": {
+    "notConfigured": "Transcript not configured.",
+    "notAvailable": "No transcript available for that meeting."
+  }
+}

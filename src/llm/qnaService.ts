@@ -1,7 +1,7 @@
 import { InvalidRequestError, NotFoundError, OutputValidationError } from '../errors/index.js';
 import { TranscriptContent, TranscriptCue } from '../types/transcript.js';
 import { containsDisallowedAnswer, redactSensitive } from './guardrails.js';
-import { QA_SYSTEM_PROMPT, buildQaUserPrompt } from './promptTemplates.js';
+import { buildQaSystemPrompt, buildQaUserPrompt } from './promptTemplates.js';
 import { parseQaResult, QaResult } from './schema.js';
 import { LlmClient } from './types.js';
 
@@ -9,6 +9,8 @@ export interface QaServiceOptions {
   client: LlmClient;
   maxCues?: number;
 }
+
+export type QaLanguage = 'en' | 'es' | 'ro';
 
 const tokenize = (text: string): string[] =>
   text
@@ -68,7 +70,7 @@ export class QaService {
     this.maxCues = options.maxCues ?? 6;
   }
 
-  async answerQuestion(question: string, content: TranscriptContent): Promise<QaResult> {
+  async answerQuestion(question: string, content: TranscriptContent, options?: { language?: QaLanguage }): Promise<QaResult> {
     if (!question.trim()) {
       throw new InvalidRequestError('Question is required.');
     }
@@ -84,7 +86,7 @@ export class QaService {
 
     const context = buildContext(selected);
     const response = await this.client.complete([
-      { role: 'system', content: QA_SYSTEM_PROMPT },
+      { role: 'system', content: buildQaSystemPrompt(options?.language) },
       { role: 'user', content: buildQaUserPrompt(question, context) }
     ]);
 

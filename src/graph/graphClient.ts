@@ -23,8 +23,8 @@ export class GraphClient {
     this.retryConfig = options.retry;
   }
 
-  async get<T>(path: string, query?: Record<string, string>): Promise<T> {
-    return this.request<T>('GET', path, undefined, query);
+  async get<T>(path: string, query?: Record<string, string>, headers?: Record<string, string>): Promise<T> {
+    return this.request<T>('GET', path, undefined, query, headers);
   }
 
   async requestText(path: string, query?: Record<string, string>): Promise<string> {
@@ -41,14 +41,21 @@ export class GraphClient {
     return response.text();
   }
 
-  async request<T>(method: string, path: string, body?: unknown, query?: Record<string, string>): Promise<T> {
+  async request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    query?: Record<string, string>,
+    headers?: Record<string, string>
+  ): Promise<T> {
     const url = this.buildUrl(path, query);
     const token = await this.tokenProvider();
     const init: RequestInit = {
       method,
       headers: {
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...headers
       }
     };
     if (body !== undefined) {

@@ -16,6 +16,7 @@ This host receives Teams activities via Bot Framework and routes them to the `Te
 - `BOT_MENTION_TEXT` (optional, e.g., `@meetinglens`)
 - `BOT_TRANSCRIPT_TEXT` (optional, inline transcript for dev)
 - `BOT_TRANSCRIPT_FILE` (optional, path to transcript text file)
+- `GRAPH_ACCESS_TOKEN` (optional, delegated Graph token for agenda search in dev)
 
 ## Run locally
 ```text

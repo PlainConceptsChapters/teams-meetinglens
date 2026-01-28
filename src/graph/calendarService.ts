@@ -35,7 +35,8 @@ export class CalendarService {
       page += 1;
       const response = await this.graphClient.get<CalendarViewResponse>(
         nextLink ? nextLink : '/me/calendarView',
-        nextLink ? undefined : query
+        nextLink ? undefined : query,
+        { Prefer: 'outlook.timezone="UTC"' }
       );
       results.push(...(response.value ?? []));
       nextLink = response['@odata.nextLink'];

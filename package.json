@@ -12,6 +12,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "auth:code": "node scripts/auth-code-test.mjs",
     "auth:transcript": "node scripts/transcript-test.mjs",
+    "auth:graph-token": "node scripts/graph-token.mjs",
     "llm:smoke": "tsx scripts/llm-smoke.ts",
     "bot:dev": "tsx scripts/bot-host.ts",
     "teamsapp:build": "node scripts/teamsapp-build.mjs",

@@ -2,7 +2,7 @@ import { InvalidRequestError, OutputValidationError } from '../errors/index.js';
 import { TranscriptContent } from '../types/transcript.js';
 import { chunkText } from './chunker.js';
 import { redactSensitive } from './guardrails.js';
-import { SUMMARY_SYSTEM_PROMPT, buildSummaryUserPrompt } from './promptTemplates.js';
+import { buildSummarySystemPrompt, buildSummaryUserPrompt } from './promptTemplates.js';
 import { parseSummaryResult, SummaryResult } from './schema.js';
 import { LlmClient } from './types.js';
 
@@ -11,6 +11,8 @@ export interface SummarizationOptions {
   overlapTokens?: number;
   maxChunks?: number;
 }
+
+export type SummaryLanguage = 'en' | 'es' | 'ro';
 
 export interface SummarizationServiceOptions {
   client: LlmClient;
@@ -60,7 +62,7 @@ export class SummarizationService {
     };
   }
 
-  async summarize(content: TranscriptContent): Promise<SummaryResult> {
+  async summarize(content: TranscriptContent, options?: { language?: SummaryLanguage }): Promise<SummaryResult> {
     if (!content.raw && content.cues.length === 0) {
       throw new InvalidRequestError('Transcript content is empty.');
     }
@@ -78,7 +80,7 @@ export class SummarizationService {
     const partials: SummaryResult[] = [];
     for (const chunk of chunks) {
       const response = await this.client.complete([
-        { role: 'system', content: SUMMARY_SYSTEM_PROMPT },
+        { role: 'system', content: buildSummarySystemPrompt(options?.language) },
         { role: 'user', content: buildSummaryUserPrompt(chunk.text) }
       ]);
       partials.push(parseSummaryResult(response));
