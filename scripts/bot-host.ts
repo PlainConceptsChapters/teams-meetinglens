@@ -341,6 +341,10 @@ const parseAgendaRange = (text: string): { start: Date; end: Date; remainder: st
   if (explicit) {
     return explicit;
   }
+  const relativeWeekday = parseRelativeWeekday(tokens, now);
+  if (relativeWeekday) {
+    return relativeWeekday;
+  }
   if (tokens.includes('yesterday') || tokens.includes('ayer') || tokens.includes('ieri')) {
     const start = new Date(now);
     start.setDate(start.getDate() - 1);
@@ -374,6 +378,48 @@ const parseAgendaRange = (text: string): { start: Date; end: Date; remainder: st
   const end = new Date(now);
   end.setDate(end.getDate() + 7);
   return { start, end, remainder: text.trim() };
+};
+
+const parseRelativeWeekday = (text: string, base: Date): { start: Date; end: Date; remainder: string } | undefined => {
+  const weekdays: Record<string, number> = {
+    sunday: 0,
+    monday: 1,
+    tuesday: 2,
+    wednesday: 3,
+    thursday: 4,
+    friday: 5,
+    saturday: 6
+  };
+  const match = text.match(/\b(?:(last|next|this)\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i);
+  if (!match) {
+    return undefined;
+  }
+  const [, qualifier, weekday] = match;
+  const target = weekdays[weekday.toLowerCase()];
+  const today = new Date(base);
+  const todayDow = today.getDay();
+  let delta = 0;
+  if (qualifier?.toLowerCase() === 'last') {
+    delta = (todayDow - target + 7) % 7;
+    if (delta === 0) {
+      delta = 7;
+    }
+    today.setDate(today.getDate() - delta);
+  } else if (qualifier?.toLowerCase() === 'next') {
+    delta = (target - todayDow + 7) % 7;
+    if (delta === 0) {
+      delta = 7;
+    }
+    today.setDate(today.getDate() + delta);
+  } else {
+    delta = (target - todayDow + 7) % 7;
+    today.setDate(today.getDate() + delta);
+  }
+
+  today.setHours(0, 0, 0, 0);
+  const end = new Date(today);
+  end.setDate(end.getDate() + 1);
+  return { start: today, end, remainder: text.replace(match[0], '').trim() };
 };
 
 const parseExplicitDate = (text: string): { start: Date; end: Date; remainder: string } | undefined => {
@@ -607,6 +653,11 @@ const isHelpIntent = (text: string): boolean => {
   return lower.includes('help') || lower.includes('ajutor') || lower.includes('ayuda');
 };
 
+const isWhoamiIntent = (text: string): boolean => {
+  const lower = text.toLowerCase();
+  return lower.includes('whoami') || lower.includes('who am i') || lower.includes('debug');
+};
+
 const isTodayIntent = (text: string): boolean => {
   const lower = text.toLowerCase();
   return (
@@ -700,6 +751,20 @@ const router = new TeamsCommandRouter({
       handler: async (request) => {
         const language = await resolvePreferredLanguage(request);
         return { text: await translateOutgoing(buildHelpText(), language) };
+      }
+    },
+    {
+      command: 'whoami',
+      handler: async (request) => {
+        const language = await resolvePreferredLanguage(request);
+        const lines = [
+          t('debug.title'),
+          t('debug.user', { value: request.fromUserId || 'unknown' }),
+          t('debug.tenant', { value: request.tenantId || 'unknown' }),
+          t('debug.graphToken', { value: request.graphToken ? 'present' : 'missing' }),
+          t('debug.oauth', { value: oauthConnection || 'not-configured' })
+        ];
+        return { text: await translateOutgoing(lines.join('\n'), language) };
       }
     },
     {
@@ -890,6 +955,16 @@ const router = new TeamsCommandRouter({
     if (intent === 'help' || isHelpIntent(englishText)) {
       return { text: await translateOutgoing(buildHelpText(), preferred) };
     }
+    if (isWhoamiIntent(englishText)) {
+      const lines = [
+        t('debug.title'),
+        t('debug.user', { value: request.fromUserId || 'unknown' }),
+        t('debug.tenant', { value: request.tenantId || 'unknown' }),
+        t('debug.graphToken', { value: request.graphToken ? 'present' : 'missing' }),
+        t('debug.oauth', { value: oauthConnection || 'not-configured' })
+      ];
+      return { text: await translateOutgoing(lines.join('\n'), preferred) };
+    }
     if (isTodayIntent(englishText)) {
       const today = new Date();
       const formatted = today.toLocaleDateString('en-US', {
@@ -1020,25 +1095,30 @@ class TeamsBot extends TeamsActivityHandler {
   const fromAadObjectId = (activity.from as { aadObjectId?: string } | undefined)?.aadObjectId;
       let graphToken: string | undefined;
       let signInLink: string | undefined;
+      let pendingMagicCode = false;
       if (oauthConnection) {
         const claimsIdentity = context.turnState.get(adapter.BotIdentityKey);
         if (claimsIdentity) {
           try {
             const userTokenClient = await botFrameworkAuthentication.createUserTokenClient(claimsIdentity);
+            const magicCodeMatch = (activity.text ?? '').trim().match(/^\d{6}$/);
+            const magicCode = magicCodeMatch ? magicCodeMatch[0] : '';
             const token = await userTokenClient.getUserToken(
               activity.from?.id ?? '',
               oauthConnection,
               activity.channelId ?? '',
-              ''
+              magicCode
             );
             graphToken = token?.token;
             if (!graphToken) {
               const signInResource = await userTokenClient.getSignInResource(oauthConnection, activity, '');
               signInLink = signInResource?.signInLink;
+              pendingMagicCode = Boolean(magicCodeMatch);
             }
           } catch {
             graphToken = undefined;
             signInLink = undefined;
+            pendingMagicCode = false;
           }
         }
       }
@@ -1080,6 +1160,16 @@ class TeamsBot extends TeamsActivityHandler {
         timestamp: activity.timestamp?.toISOString(),
         locale: activity.locale ?? undefined
       };
+
+      if (pendingMagicCode) {
+        if (graphToken) {
+          await context.sendActivity(t('auth.signedIn'));
+        } else {
+          await context.sendActivity(t('auth.codeInvalid'));
+        }
+        await next();
+        return;
+      }
 
       const response = await router.handle(request);
       const metadata = response.metadata?.adaptiveCard;

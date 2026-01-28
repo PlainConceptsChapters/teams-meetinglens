@@ -50,7 +50,9 @@ const requiredKeys = [
   'fallback.unknown',
   'date.today',
   'auth.signIn',
-  'auth.signInCta'
+  'auth.signInCta',
+  'auth.codeInvalid',
+  'auth.signedIn'
 ];
 
 describe('i18n catalogs', () => {

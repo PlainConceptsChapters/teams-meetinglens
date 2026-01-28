@@ -49,6 +49,8 @@
   },
   "auth": {
     "signIn": "Please sign in so I can access your agenda and transcripts.",
-    "signInCta": "Sign in"
+    "signInCta": "Sign in",
+    "codeInvalid": "I couldn't verify that code. Please try signing in again.",
+    "signedIn": "You're signed in. Ask me about your meetings."
   }
 }

@@ -106,6 +106,11 @@ To ensure users only access their own data, use delegated Graph via Teams SSO:
    - `webApplicationInfo.resource`: Application ID URI (set `TEAMS_APP_RESOURCE`).
 6. Rebuild and re-upload the Teams app package.
 
+Note (Web Chat): add this redirect URI to your Entra app registration for Bot Framework Web Chat sign-in:
+`https://token.botframework.com/.auth/web/redirect`
+
+Note (magic code): When testing in Web Chat, the sign-in flow can show a 6-digit code. Paste that code into the chat so the bot can complete the sign-in.
+
 Notes:
 - If the bot can't be reached, re-check the tunnel URL and Azure Bot messaging endpoint.
 - Make sure the App ID in the manifest matches the Azure Bot/Entra App ID.
