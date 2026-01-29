@@ -1,9 +1,7 @@
-name: teamsapp-package
+name: Package Bot for Teams
 
 on:
   workflow_dispatch:
-  push:
-    branches: ["main"]
 
 jobs:
   package:
