@@ -5,8 +5,10 @@
   "type": "module",
   "description": "Reference implementation scaffold for teams-meetinglens",
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
     "format": "prettier --write .",
+    "start": "node dist/scripts/bot-host.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",

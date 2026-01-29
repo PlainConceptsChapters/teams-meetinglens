@@ -35,7 +35,7 @@ const requireEnv = (key: string): string => {
   return value;
 };
 
-const port = Number(process.env.BOT_PORT ?? 3978);
+const port = Number(process.env.BOT_PORT ?? process.env.PORT ?? 3978);
 const endpointPath = process.env.BOT_ENDPOINT_PATH ?? '/api/messages';
 const botMentionText = process.env.BOT_MENTION_TEXT;
 const graphBaseUrl = process.env.GRAPH_BASE_URL ?? 'https://graph.microsoft.com/v1.0';
