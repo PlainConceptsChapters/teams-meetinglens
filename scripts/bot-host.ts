@@ -19,6 +19,7 @@ import {
   QaService,
   SummarizationService,
   buildSummaryAdaptiveCard,
+  buildSummaryLoadingCard,
   TranscriptService
 } from '../src/index.js';
 import { TranslationService } from '../src/llm/translationService.js';
@@ -331,6 +332,17 @@ const isAgendaIntent = (text: string): boolean => {
     lower.includes('agenda mea') ||
     lower.includes('calendarul meu') ||
     lower.includes('intalniri')
+  );
+};
+
+const isSummaryIntent = (text: string): boolean => {
+  const lower = text.toLowerCase();
+  return (
+    lower.startsWith('/summary') ||
+    lower.includes('summarize') ||
+    lower.includes('summary') ||
+    lower.includes('key points') ||
+    lower.includes('most important')
   );
 };
 
@@ -1027,7 +1039,11 @@ const router = new TeamsCommandRouter({
               const client = buildLlmClient();
               const summarizer = new SummarizationService({ client });
               const result = await summarizer.summarize(transcript, { language: 'en' });
-              return { text: await translateOutgoing(result.summary, preferred) };
+              const card = buildSummaryAdaptiveCard(result, { language: 'en' });
+              return {
+                text: await translateOutgoing(t('summary.cardFallback'), preferred),
+                metadata: { adaptiveCard: JSON.stringify(card) }
+              };
             }
           } catch {
             return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
@@ -1416,25 +1432,51 @@ class TeamsBot extends TeamsActivityHandler {
         return;
       }
 
+      let loadingActivityId: string | undefined;
+      const shouldShowSummaryLoading = isSummaryIntent(incomingText) && (graphToken || graphAccessToken);
+      if (shouldShowSummaryLoading) {
+        await context.sendActivity({ type: 'typing' });
+        const loadingCard = buildSummaryLoadingCard();
+        const loadingActivity = await context.sendActivity({
+          text: 'Working on it...',
+          attachments: [loadingCard]
+        });
+        loadingActivityId = loadingActivity?.id;
+      }
+
       const response = await router.handle(request);
       const metadata = response.metadata?.adaptiveCard;
       const signIn = response.metadata?.signinLink;
       const followupText = response.metadata?.followupText;
-      if (metadata) {
-        await context.sendActivity({
-          text: response.text,
-          attachments: [JSON.parse(metadata)]
-        });
-      } else if (signIn) {
-        await context.sendActivity({
-          text: response.text,
-          attachments: [buildSignInCard(response.text, t('auth.signInCta'), signIn)]
-        });
-        if (followupText) {
-          await context.sendActivity(followupText);
+      const outgoing = metadata
+        ? {
+            text: response.text,
+            attachments: [JSON.parse(metadata)]
+          }
+        : signIn
+          ? {
+              text: response.text,
+              attachments: [buildSignInCard(response.text, t('auth.signInCta'), signIn)]
+            }
+          : { text: response.text };
+
+      if (loadingActivityId) {
+        try {
+          await context.updateActivity({
+            id: loadingActivityId,
+            type: 'message',
+            conversation: activity.conversation,
+            ...outgoing
+          });
+        } catch {
+          await context.sendActivity(outgoing);
         }
       } else {
-        await context.sendActivity(response.text);
+        await context.sendActivity(outgoing);
+      }
+
+      if (signIn && followupText) {
+        await context.sendActivity(followupText);
       }
       await next();
     });
