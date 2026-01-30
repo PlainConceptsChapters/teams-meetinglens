@@ -207,7 +207,13 @@ export const createRouter = (deps: {
             const language = await resolvePreferredLanguage(request);
             return { text: await translateOutgoing(t('selection.needAgenda'), language) };
           }
-          const selection = request.text.split(' ')[1];
+          const rawText = request.text.trim();
+          const selectionToken = rawText ? rawText.split(' ')[0] : '';
+          const selectionFromValue =
+            typeof request.value === 'object' && request.value && 'selection' in request.value
+              ? String((request.value as { selection?: string }).selection ?? '')
+              : '';
+          const selection = selectionToken || selectionFromValue;
           const index = Number(selection);
           if (!Number.isFinite(index) || index < 1 || index > store.items.length) {
             const language = await resolvePreferredLanguage(request);
