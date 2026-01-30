@@ -1,5 +1,6 @@
 import { SummaryResult, SummaryTemplateData } from './schema.js';
 import { getSummaryTemplateLabels } from '../i18n/summaryTemplateCatalog.js';
+import { SUMMARY_LIMITS } from './summaryLimits.js';
 
 export type SummaryTemplateLanguage = 'en' | 'es' | 'ro' | string;
 export type SummaryTemplateFormat = 'markdown' | 'xml';
@@ -14,24 +15,26 @@ const normalizeSteps = (steps: string[], minCount: number, notProvided: string):
   while (filtered.length < minCount) {
     filtered.push(notProvided);
   }
-  return filtered;
+  return filtered.slice(0, SUMMARY_LIMITS.nextStepsPerParty);
 };
 
 const buildTemplateData = (result: SummaryResult): SummaryTemplateData => {
   const templateData = result.templateData;
   const meetingPurpose = templateData?.meetingPurpose?.trim() || '';
 
-  const actionItemsDetailed =
+  const actionItemsDetailed = (
     templateData?.actionItemsDetailed?.length
       ? templateData.actionItemsDetailed
-      : result.actionItems.map((action) => ({ action, owner: '', dueDate: '', notes: '' }));
+      : result.actionItems.map((action) => ({ action, owner: '', dueDate: '', notes: '' }))
+  ).slice(0, SUMMARY_LIMITS.actionItems);
 
-  const keyPointsDetailed =
+  const keyPointsDetailed = (
     templateData?.keyPointsDetailed?.length
       ? templateData.keyPointsDetailed
-      : result.keyPoints.map((title) => ({ title, explanation: '' }));
+      : result.keyPoints.map((title) => ({ title, explanation: '' }))
+  ).slice(0, SUMMARY_LIMITS.keyPoints);
 
-  const topicsDetailed =
+  const topicsDetailed = (
     templateData?.topicsDetailed?.length
       ? templateData.topicsDetailed
       : result.topics.map((topic) => ({
@@ -40,7 +43,13 @@ const buildTemplateData = (result: SummaryResult): SummaryTemplateData => {
           observations: [],
           rootCause: '',
           impact: ''
-        }));
+        }))
+  )
+    .slice(0, SUMMARY_LIMITS.topics)
+    .map((topic) => ({
+      ...topic,
+      observations: topic.observations.slice(0, SUMMARY_LIMITS.observationsPerTopic)
+    }));
 
   return {
     meetingHeader: templateData?.meetingHeader ?? {

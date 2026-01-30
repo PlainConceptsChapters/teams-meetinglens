@@ -76,6 +76,9 @@
     "statusOn": "Debug logs are currently ON.",
     "statusOff": "Debug logs are currently OFF."
   },
+  "summary": {
+    "cardFallback": "Meeting summary"
+  },
   "summaryTemplate": {
     "meetingHeader": "Meeting Header",
     "meetingTitle": "Meeting title:",
