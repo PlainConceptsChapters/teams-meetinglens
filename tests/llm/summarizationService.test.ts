@@ -17,6 +17,8 @@ describe('SummarizationService', () => {
   it('summarizes transcript content', async () => {
     const service = new SummarizationService({ client: createClient() });
     const result = await service.summarize({ raw: 'hello', cues: [] });
-    expect(result.summary).toBe('Summary text');
+    expect(result.summary).toContain('**1. Meeting Header**');
+    expect(result.template).toContain('**1. Meeting Header**');
+    expect(result.template).toContain('3. Meeting Purpose');
   });
 });
