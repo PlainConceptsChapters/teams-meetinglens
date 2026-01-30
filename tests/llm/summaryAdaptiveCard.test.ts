@@ -43,6 +43,10 @@ describe('buildSummaryAdaptiveCard', () => {
     const card = buildSummaryAdaptiveCard(baseResult, { language: 'en' });
     expect(card.contentType).toBe('application/vnd.microsoft.card.adaptive');
     expect(card.content.type).toBe('AdaptiveCard');
-    expect(card.content.body[0].text).toContain('1. Meeting Header');
+    const first = card.content.body[0];
+    expect('text' in first).toBe(true);
+    if ('text' in first) {
+      expect(first.text).toContain('1. Meeting Header');
+    }
   });
 });
