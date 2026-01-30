@@ -19,6 +19,8 @@ export * from './llm/guardrails.js';
 export * from './llm/chunker.js';
 export * from './llm/schema.js';
 export * from './llm/summaryTemplate.js';
+export * from './llm/summaryAdaptiveCard.js';
+export * from './llm/summaryLimits.js';
 export * from './llm/summarizationService.js';
 export * from './llm/qnaService.js';
 export * from './llm/azureOpenAiClient.js';

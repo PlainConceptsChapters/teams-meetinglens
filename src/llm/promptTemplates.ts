@@ -22,6 +22,7 @@ templateData must be an object with keys:
 - topicsDetailed [ { topic, issueDescription, observations, rootCause, impact } ]
 - pathForward { definitionOfSuccess, agreedNextAttempt, decisionPoint, checkpointDate }
 - nextSteps { partyA { name, steps }, partyB { name, steps } }
+Keep the summary concise. Use at most 5 action items, 5 key points, 4 topics, 3 observations per topic, and 4 steps per party.
 Never include personal data beyond what appears in the transcript.
 If information is missing, use empty arrays or empty strings.
 Respond in ${languageName}.`;

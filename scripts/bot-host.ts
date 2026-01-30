@@ -18,6 +18,7 @@ import {
   OnlineMeetingService,
   QaService,
   SummarizationService,
+  buildSummaryAdaptiveCard,
   TranscriptService
 } from '../src/index.js';
 import { TranslationService } from '../src/llm/translationService.js';
@@ -1040,7 +1041,11 @@ const router = new TeamsCommandRouter({
           const client = buildLlmClient();
           const summarizer = new SummarizationService({ client });
           const result = await summarizer.summarize(transcript, { language: 'en' });
-          return { text: await translateOutgoing(result.summary, preferred) };
+          const card = buildSummaryAdaptiveCard(result, { language: 'en' });
+          return {
+            text: await translateOutgoing(t('summary.cardFallback'), preferred),
+            metadata: { adaptiveCard: JSON.stringify(card) }
+          };
         }
 
         const selected = store.items[0].agendaItem;
@@ -1060,7 +1065,11 @@ const router = new TeamsCommandRouter({
         const client = buildLlmClient();
         const summarizer = new SummarizationService({ client });
         const result = await summarizer.summarize(transcript, { language: 'en' });
-        return { text: await translateOutgoing(result.summary, preferred) };
+        const card = buildSummaryAdaptiveCard(result, { language: 'en' });
+        return {
+          text: await translateOutgoing(t('summary.cardFallback'), preferred),
+          metadata: { adaptiveCard: JSON.stringify(card) }
+        };
       }
     },
     {
@@ -1202,17 +1211,21 @@ const router = new TeamsCommandRouter({
       }
       const store = selectionStore.get(request.conversationId);
       const selected = store?.items?.[0]?.agendaItem;
-      try {
-        const transcriptFromContext = await getTranscriptFromMeetingContext(request);
-        if (transcriptFromContext?.raw) {
-          const client = buildLlmClient();
-          const summarizer = new SummarizationService({ client });
-          const result = await summarizer.summarize(transcriptFromContext, { language: 'en' });
-          return { text: await translateOutgoing(result.summary, preferred) };
+        try {
+          const transcriptFromContext = await getTranscriptFromMeetingContext(request);
+          if (transcriptFromContext?.raw) {
+            const client = buildLlmClient();
+            const summarizer = new SummarizationService({ client });
+            const result = await summarizer.summarize(transcriptFromContext, { language: 'en' });
+            const card = buildSummaryAdaptiveCard(result, { language: 'en' });
+            return {
+              text: await translateOutgoing(t('summary.cardFallback'), preferred),
+              metadata: { adaptiveCard: JSON.stringify(card) }
+            };
+          }
+        } catch {
+          return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
         }
-      } catch {
-        return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
-      }
 
       const meeting = selected ?? (await findMeetingFromNlu(request, englishText, nlu, true));
       if (!meeting) {
@@ -1232,7 +1245,11 @@ const router = new TeamsCommandRouter({
       const client = buildLlmClient();
       const summarizer = new SummarizationService({ client });
       const result = await summarizer.summarize(transcript, { language: 'en' });
-      return { text: await translateOutgoing(result.summary, preferred) };
+      const card = buildSummaryAdaptiveCard(result, { language: 'en' });
+      return {
+        text: await translateOutgoing(t('summary.cardFallback'), preferred),
+        metadata: { adaptiveCard: JSON.stringify(card) }
+      };
     }
 
     if (intent === 'qa') {
