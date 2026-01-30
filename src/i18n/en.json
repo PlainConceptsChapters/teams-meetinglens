@@ -28,6 +28,7 @@
     "none": "No meetings found for that range ({range}).",
     "noneWithTranscript": "No meetings with transcripts found for that range ({range}).",
     "cannotAccess": "I couldn't access your agenda yet. {message}",
+    "searchFailed": "Agenda search failed.",
     "transcriptAvailable": "Transcript available",
     "noTranscript": "No transcript",
     "organizer": "Organizer: {organizer}",

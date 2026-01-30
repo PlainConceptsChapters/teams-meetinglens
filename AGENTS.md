@@ -65,6 +65,7 @@ This document defines the Codex agents used for this repository and how they col
 ## Collaboration rules
 - Never edit `.env`; update `.env.example` only.
 - All user-facing text must come from i18n catalogs (no magic strings in code).
+- Keep files roughly 300-500 lines max; split large files into focused modules as a standard practice.
 
 ## Related documentation
 - `README.md`

@@ -41,6 +41,7 @@ const requiredKeys = [
   'agenda.none',
   'agenda.noneWithTranscript',
   'agenda.cannotAccess',
+  'agenda.searchFailed',
   'agenda.transcriptAvailable',
   'agenda.noTranscript',
   'agenda.organizer',
