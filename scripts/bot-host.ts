@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import fs from 'node:fs/promises';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import express, { Request, Response } from 'express';
 import {
@@ -19,9 +20,11 @@ import {
   QaService,
   SummarizationService,
   buildSummaryAdaptiveCard,
-  buildSummaryLoadingCard,
   TranscriptService
 } from '../src/index.js';
+import { chunkText } from '../src/llm/chunker.js';
+import type { SummaryLanguage } from '../src/llm/summarizationService.js';
+import type { TranscriptContent } from '../src/types/transcript.js';
 import { TranslationService } from '../src/llm/translationService.js';
 import type { NluResult } from '../src/teams/nluService.js';
 import { NluService } from '../src/teams/nluService.js';
@@ -252,6 +255,153 @@ const logStore = new Map<string, boolean>();
 let translationService: TranslationService | undefined;
 let nluService: NluService | undefined;
 
+const SUMMARY_LOGGING_OPTIONS = {
+  maxTokensPerChunk: 1500,
+  overlapTokens: 150,
+  maxChunks: 6
+} as const;
+
+const hashValue = (value?: string): string => {
+  if (!value) {
+    return 'unknown';
+  }
+  const salt = process.env.LOG_HASH_SALT ?? '';
+  return crypto.createHash('sha256').update(`${salt}:${value}`).digest('hex').slice(0, 16);
+};
+
+const redactText = (value: string): string => {
+  return value
+    .replace(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi, '[REDACTED_EMAIL]')
+    .replace(/https?:\/\/\S+/gi, '[REDACTED_URL]')
+    .replace(/\+?\d[\d\s().-]{7,}\d/g, '[REDACTED_PHONE]')
+    .replace(/\b\d{6,}\b/g, '[REDACTED_ID]');
+};
+
+const truncateText = (value: string, maxLength = 200): string => {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, maxLength)}...`;
+};
+
+const sanitizePayload = (value: unknown): unknown => {
+  if (value === null || value === undefined) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    return truncateText(redactText(value));
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizePayload(item));
+  }
+  if (typeof value === 'object') {
+    return Object.entries(value).reduce<Record<string, unknown>>((acc, [key, val]) => {
+      acc[key] = sanitizePayload(val);
+      return acc;
+    }, {});
+  }
+  return String(value);
+};
+
+const logEvent = (request: ChannelRequest, event: string, payload: Record<string, unknown>) => {
+  if (!isLogEnabled(request)) {
+    return;
+  }
+  const base = {
+    timestamp: new Date().toISOString(),
+    event,
+    conversationId: hashValue(request.conversationId),
+    userId: hashValue(request.fromUserId),
+    tenantId: hashValue(request.tenantId),
+    messageId: hashValue(request.messageId)
+  };
+  const sanitized = sanitizePayload(payload);
+  console.log(JSON.stringify({ ...base, ...(sanitized as Record<string, unknown>) }));
+};
+
+const buildTranscriptTextForLogging = (content: TranscriptContent) => {
+  if (!content.cues.length) {
+    return content.raw;
+  }
+  return content.cues
+    .map((cue) => {
+      const speaker = cue.speaker ? `[${cue.speaker}] ` : '';
+      return `${speaker}${cue.text}`.trim();
+    })
+    .join('\n');
+};
+
+const summarizeWithLogging = async (
+  request: ChannelRequest,
+  transcript: TranscriptContent,
+  summarizer: SummarizationService,
+  options: { language: SummaryLanguage },
+  correlationId: string
+) => {
+  const transcriptText = buildTranscriptTextForLogging(transcript);
+  const chunks = chunkText(transcriptText, SUMMARY_LOGGING_OPTIONS.maxTokensPerChunk, SUMMARY_LOGGING_OPTIONS.overlapTokens)
+    .slice(0, SUMMARY_LOGGING_OPTIONS.maxChunks);
+  logEvent(request, 'summary_request', {
+    correlationId,
+    transcriptLength: transcriptText.length,
+    chunkCount: chunks.length,
+    language: options.language
+  });
+  const started = Date.now();
+  try {
+    const result = await summarizer.summarize(transcript, options);
+    logEvent(request, 'summary_complete', {
+      correlationId,
+      latencyMs: Date.now() - started,
+      chunkCount: chunks.length
+    });
+    return result;
+  } catch (error) {
+    logEvent(request, 'summary_error', {
+      correlationId,
+      latencyMs: Date.now() - started,
+      errorType: error instanceof Error ? error.name : 'UnknownError',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+    throw error;
+  }
+};
+
+const answerWithLogging = async (
+  request: ChannelRequest,
+  question: string,
+  transcript: TranscriptContent,
+  qa: QaService,
+  options: { language: SummaryLanguage },
+  correlationId: string
+) => {
+  logEvent(request, 'qa_request', {
+    correlationId,
+    questionLength: question.length,
+    language: options.language
+  });
+  const started = Date.now();
+  try {
+    const result = await qa.answerQuestion(question, transcript, options);
+    logEvent(request, 'qa_complete', {
+      correlationId,
+      latencyMs: Date.now() - started
+    });
+    return result;
+  } catch (error) {
+    logEvent(request, 'qa_error', {
+      correlationId,
+      latencyMs: Date.now() - started,
+      errorType: error instanceof Error ? error.name : 'UnknownError',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+    throw error;
+  }
+};
+
 const getMeetingTranscriptService = (request: ChannelRequest) => {
   const { onlineMeetingService, transcriptService } = buildGraphServicesForRequest(request);
   return { onlineMeetingService, transcriptService };
@@ -364,8 +514,10 @@ const runGraphDebug = async (request: ChannelRequest) => {
   end.setDate(end.getDate() + 1);
   try {
     await graphClient.get('/me', undefined);
+    logEvent(request, 'graph_call', { endpoint: '/me', status: 'ok' });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'unknown error';
+    logEvent(request, 'graph_call', { endpoint: '/me', status: 'error', message });
     return { ok: false, error: message };
   }
   try {
@@ -376,12 +528,14 @@ const runGraphDebug = async (request: ChannelRequest) => {
       includeTranscriptAvailability: true,
       top: 10
     });
+    logEvent(request, 'graph_call', { endpoint: '/me/calendarView', status: 'ok', count: agenda.items.length });
     const count = agenda.items.length;
     const withJoinUrl = agenda.items.filter((item) => Boolean(item.joinUrl)).length;
     const withTranscript = agenda.items.filter((item) => item.transcriptAvailable).length;
     return { ok: true, count, start, end, withJoinUrl, withTranscript };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'unknown error';
+    logEvent(request, 'graph_call', { endpoint: '/me/calendarView', status: 'error', message });
     return { ok: false, error: message };
   }
 };
@@ -1026,6 +1180,7 @@ const router = new TeamsCommandRouter({
     {
       command: 'summary',
       handler: async (request) => {
+        const correlationId = request.correlationId ?? crypto.randomUUID();
         const { language } = extractLanguageToken(request.text ?? '');
         const preferred = await resolvePreferredLanguage(request, language);
         if (!request.graphToken && !graphAccessToken) {
@@ -1038,7 +1193,7 @@ const router = new TeamsCommandRouter({
             if (transcript?.raw) {
               const client = buildLlmClient();
               const summarizer = new SummarizationService({ client });
-              const result = await summarizer.summarize(transcript, { language: 'en' });
+              const result = await summarizeWithLogging(request, transcript, summarizer, { language: 'en' }, correlationId);
               const card = buildSummaryAdaptiveCard(result, { language: 'en' });
               return {
                 text: await translateOutgoing(t('summary.cardFallback'), preferred),
@@ -1046,6 +1201,7 @@ const router = new TeamsCommandRouter({
               };
             }
           } catch {
+            logEvent(request, 'transcript_error', { correlationId, stage: 'context_lookup' });
             return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
           }
           const transcript = await buildTranscript();
@@ -1056,7 +1212,7 @@ const router = new TeamsCommandRouter({
           }
           const client = buildLlmClient();
           const summarizer = new SummarizationService({ client });
-          const result = await summarizer.summarize(transcript, { language: 'en' });
+          const result = await summarizeWithLogging(request, transcript, summarizer, { language: 'en' }, correlationId);
           const card = buildSummaryAdaptiveCard(result, { language: 'en' });
           return {
             text: await translateOutgoing(t('summary.cardFallback'), preferred),
@@ -1074,13 +1230,14 @@ const router = new TeamsCommandRouter({
           });
           transcript = await transcriptLookup.getTranscriptForAgendaItem(selected);
         } catch {
+          logEvent(request, 'transcript_error', { correlationId, stage: 'meeting_lookup' });
           return {
             text: await translateOutgoing(t('transcript.notAvailable'), preferred)
           };
         }
         const client = buildLlmClient();
         const summarizer = new SummarizationService({ client });
-        const result = await summarizer.summarize(transcript, { language: 'en' });
+        const result = await summarizeWithLogging(request, transcript, summarizer, { language: 'en' }, correlationId);
         const card = buildSummaryAdaptiveCard(result, { language: 'en' });
         return {
           text: await translateOutgoing(t('summary.cardFallback'), preferred),
@@ -1091,6 +1248,7 @@ const router = new TeamsCommandRouter({
     {
       command: 'qa',
       handler: async (request) => {
+        const correlationId = request.correlationId ?? crypto.randomUUID();
         const { language, remainder } = extractLanguageToken(request.text ?? '');
         const preferred = await resolvePreferredLanguage(request, language);
         if (!request.graphToken && !graphAccessToken) {
@@ -1105,10 +1263,11 @@ const router = new TeamsCommandRouter({
             if (transcript?.raw) {
               const client = buildLlmClient();
               const qa = new QaService({ client });
-              const result = await qa.answerQuestion(englishQuestion, transcript, { language: 'en' });
+              const result = await answerWithLogging(request, englishQuestion, transcript, qa, { language: 'en' }, correlationId);
               return { text: await translateOutgoing(result.answer, preferred) };
             }
           } catch {
+            logEvent(request, 'transcript_error', { correlationId, stage: 'context_lookup' });
             return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
           }
           const transcript = await buildTranscript();
@@ -1119,7 +1278,7 @@ const router = new TeamsCommandRouter({
           }
           const client = buildLlmClient();
           const qa = new QaService({ client });
-          const result = await qa.answerQuestion(englishQuestion, transcript, { language: 'en' });
+          const result = await answerWithLogging(request, englishQuestion, transcript, qa, { language: 'en' }, correlationId);
           return { text: await translateOutgoing(result.answer, preferred) };
         }
         const selected = store.items[0].agendaItem;
@@ -1132,13 +1291,14 @@ const router = new TeamsCommandRouter({
           });
           transcript = await transcriptLookup.getTranscriptForAgendaItem(selected);
         } catch {
+          logEvent(request, 'transcript_error', { correlationId, stage: 'meeting_lookup' });
           return {
             text: await translateOutgoing(t('transcript.notAvailable'), preferred)
           };
         }
         const client = buildLlmClient();
         const qa = new QaService({ client });
-        const result = await qa.answerQuestion(englishQuestion, transcript, { language: 'en' });
+        const result = await answerWithLogging(request, englishQuestion, transcript, qa, { language: 'en' }, correlationId);
         return { text: await translateOutgoing(result.answer, preferred) };
       }
     }
@@ -1149,6 +1309,14 @@ const router = new TeamsCommandRouter({
     const englishText = await translateToEnglish(request.text ?? '', preferred);
     const nlu = await getNluService()?.parse(englishText, new Date(), systemTimeZone);
     const intent = nlu?.intent ?? 'unknown';
+    const correlationId = request.correlationId ?? crypto.randomUUID();
+
+    logEvent(request, 'intent_resolved', {
+      correlationId,
+      intent,
+      hasNlu: Boolean(nlu),
+      textLength: englishText.length
+    });
 
     if (intent === 'agenda' || isAgendaIntent(englishText)) {
       return handleAgendaRequest(request);
@@ -1232,7 +1400,7 @@ const router = new TeamsCommandRouter({
           if (transcriptFromContext?.raw) {
             const client = buildLlmClient();
             const summarizer = new SummarizationService({ client });
-            const result = await summarizer.summarize(transcriptFromContext, { language: 'en' });
+            const result = await summarizeWithLogging(request, transcriptFromContext, summarizer, { language: 'en' }, correlationId);
             const card = buildSummaryAdaptiveCard(result, { language: 'en' });
             return {
               text: await translateOutgoing(t('summary.cardFallback'), preferred),
@@ -1240,6 +1408,7 @@ const router = new TeamsCommandRouter({
             };
           }
         } catch {
+          logEvent(request, 'transcript_error', { correlationId, stage: 'context_lookup' });
           return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
         }
 
@@ -1256,11 +1425,12 @@ const router = new TeamsCommandRouter({
         });
         transcript = await transcriptLookup.getTranscriptForAgendaItem(meeting);
       } catch {
+        logEvent(request, 'transcript_error', { correlationId, stage: 'meeting_lookup' });
         return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
       }
       const client = buildLlmClient();
       const summarizer = new SummarizationService({ client });
-      const result = await summarizer.summarize(transcript, { language: 'en' });
+      const result = await summarizeWithLogging(request, transcript, summarizer, { language: 'en' }, correlationId);
       const card = buildSummaryAdaptiveCard(result, { language: 'en' });
       return {
         text: await translateOutgoing(t('summary.cardFallback'), preferred),
@@ -1280,10 +1450,11 @@ const router = new TeamsCommandRouter({
         if (transcriptFromContext?.raw) {
           const client = buildLlmClient();
           const qa = new QaService({ client });
-          const result = await qa.answerQuestion(question, transcriptFromContext, { language: 'en' });
+          const result = await answerWithLogging(request, question, transcriptFromContext, qa, { language: 'en' }, correlationId);
           return { text: await translateOutgoing(result.answer, preferred) };
         }
       } catch {
+        logEvent(request, 'transcript_error', { correlationId, stage: 'context_lookup' });
         return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
       }
 
@@ -1298,11 +1469,12 @@ const router = new TeamsCommandRouter({
           });
           transcript = await transcriptLookup.getTranscriptForAgendaItem(meeting);
         } catch {
+          logEvent(request, 'transcript_error', { correlationId, stage: 'meeting_lookup' });
           return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
         }
         const client = buildLlmClient();
         const qa = new QaService({ client });
-        const result = await qa.answerQuestion(question, transcript, { language: 'en' });
+        const result = await answerWithLogging(request, question, transcript, qa, { language: 'en' }, correlationId);
         return { text: await translateOutgoing(result.answer, preferred) };
       }
 
@@ -1310,7 +1482,7 @@ const router = new TeamsCommandRouter({
       if (transcript.raw) {
         const client = buildLlmClient();
         const qa = new QaService({ client });
-        const result = await qa.answerQuestion(question, transcript, { language: 'en' });
+        const result = await answerWithLogging(request, question, transcript, qa, { language: 'en' }, correlationId);
         return { text: await translateOutgoing(result.answer, preferred) };
       }
 
@@ -1360,6 +1532,7 @@ class TeamsBot extends TeamsActivityHandler {
         }
       }
 
+      const correlationId = crypto.randomUUID();
       const request: ChannelRequest = {
         channelId: activity.channelId ?? 'msteams',
         conversationId: activity.conversation?.id ?? '',
@@ -1368,6 +1541,7 @@ class TeamsBot extends TeamsActivityHandler {
         fromUserName: activity.from?.name ?? undefined,
         tenantId: activity.conversation?.tenantId ?? activity.channelData?.tenant?.id,
         text: commandText ?? activity.text ?? '',
+        correlationId,
         graphToken,
         signInLink,
         meetingId:
@@ -1397,6 +1571,15 @@ class TeamsBot extends TeamsActivityHandler {
         timestamp: activity.timestamp?.toISOString(),
         locale: activity.locale ?? (activity.channelData as { locale?: string } | undefined)?.locale ?? undefined
       };
+      logEvent(request, 'incoming_message', {
+        correlationId,
+        channelId: request.channelId,
+        command: commandText ?? undefined,
+        textLength: request.text.length,
+        hasAttachments: Boolean(request.attachments?.length),
+        hasMentions: Boolean(request.mentions?.length),
+        locale: request.locale
+      });
 
       if (magicCodeMatch) {
         const preferred = await resolvePreferredLanguage(request);
@@ -1435,11 +1618,10 @@ class TeamsBot extends TeamsActivityHandler {
       let loadingActivityId: string | undefined;
       const shouldShowSummaryLoading = isSummaryIntent(incomingText) && (graphToken || graphAccessToken);
       if (shouldShowSummaryLoading) {
+        const preferred = await resolvePreferredLanguage(request);
         await context.sendActivity({ type: 'typing' });
-        const loadingCard = buildSummaryLoadingCard();
         const loadingActivity = await context.sendActivity({
-          text: 'Working on it...',
-          attachments: [loadingCard]
+          text: await translateOutgoing(t('summary.loadingText'), preferred)
         });
         loadingActivityId = loadingActivity?.id;
       }
@@ -1459,6 +1641,13 @@ class TeamsBot extends TeamsActivityHandler {
               attachments: [buildSignInCard(response.text, t('auth.signInCta'), signIn)]
             }
           : { text: response.text };
+
+      logEvent(request, 'outgoing_message', {
+        correlationId: request.correlationId,
+        textLength: response.text.length,
+        hasCard: Boolean(metadata),
+        hasSignIn: Boolean(signIn)
+      });
 
       if (loadingActivityId) {
         try {

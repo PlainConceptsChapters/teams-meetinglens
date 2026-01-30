@@ -13,13 +13,29 @@ const valueOrNotProvided = (value: string | undefined, notProvided: string): str
 
 const normalizeList = (lines: string[]) => lines.map((line) => line.trim()).filter(Boolean);
 
-const joinParts = (parts: string[]) => normalizeList(parts).join(' | ');
 
 const bulletLines = (lines: string[]) => lines.map((line) => `- ${line}`).join('\n');
 
 const bulletsOrFallback = (lines: string[], notProvided: string) => {
   const normalized = normalizeList(lines);
   return bulletLines(normalized.length ? normalized : [notProvided]);
+};
+
+const ensureMinCount = <T,>(items: T[], minCount: number, filler: () => T): T[] => {
+  const result = [...items];
+  while (result.length < minCount) {
+    result.push(filler());
+  }
+  return result;
+};
+
+const stepsOrFallback = (lines: string[], notProvided: string, stepLabel: string) => {
+  const normalized = normalizeList(lines);
+  const resolved = ensureMinCount(normalized.length ? normalized : [notProvided], 2, () => notProvided).slice(
+    0,
+    SUMMARY_LIMITS.nextStepsPerParty
+  );
+  return resolved.map((line, index) => `${stepLabel} ${index + 1}: ${line}`).join('\n');
 };
 
 const buildTemplateData = (result: SummaryResult): SummaryTemplateData => {
@@ -95,34 +111,27 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
   const data = buildTemplateData(result);
   const notProvided = labels.notProvided;
 
-  const meetingTitle = normalizeText(data.meetingHeader.meetingTitle) || 'Meeting summary';
-  const metaLine = joinParts([
-    data.meetingHeader.companiesParties,
-    data.meetingHeader.date,
-    data.meetingHeader.duration
-  ]);
-  const linkReference = normalizeText(data.meetingHeader.linkReference);
-  const meetingPurpose = normalizeText(data.meetingPurpose);
+  const meetingTitle = normalizeText(data.meetingHeader.meetingTitle) || labels.summaryTitle;
 
-  const keyPointLines = data.keyPointsDetailed.map((point) => {
-    const title = valueOrNotProvided(point.title, notProvided);
-    const explanation = normalizeText(point.explanation);
-    return explanation ? `${title} - ${explanation}` : title;
-  });
+  const actionItems = ensureMinCount(
+    data.actionItemsDetailed.length ? data.actionItemsDetailed : [{ action: '', owner: '', dueDate: '', notes: '' }],
+    2,
+    () => ({ action: '', owner: '', dueDate: '', notes: '' })
+  ).slice(0, SUMMARY_LIMITS.actionItems);
 
-  const decisionLines = normalizeList(result.decisions);
+  const keyPoints = ensureMinCount(
+    data.keyPointsDetailed.length ? data.keyPointsDetailed : [{ title: '', explanation: '' }],
+    2,
+    () => ({ title: '', explanation: '' })
+  ).slice(0, SUMMARY_LIMITS.keyPoints);
 
-  const actionLines = data.actionItemsDetailed.map((item) => {
-    const action = valueOrNotProvided(item.action, notProvided);
-    const owner = normalizeText(item.owner);
-    const due = normalizeText(item.dueDate);
-    const meta = joinParts([owner, due]);
-    return meta ? `${action} (${meta})` : action;
-  });
-
-  const topics = data.topicsDetailed.length
-    ? data.topicsDetailed
-    : [{ topic: '', issueDescription: '', observations: [], rootCause: '', impact: '' }];
+  const topics = ensureMinCount(
+    data.topicsDetailed.length
+      ? data.topicsDetailed
+      : [{ topic: '', issueDescription: '', observations: [], rootCause: '', impact: '' }],
+    2,
+    () => ({ topic: '', issueDescription: '', observations: [], rootCause: '', impact: '' })
+  ).slice(0, SUMMARY_LIMITS.topics);
 
   const partyALabel = normalizeText(data.nextSteps.partyA.name) || labels.partyA;
   const partyBLabel = normalizeText(data.nextSteps.partyB.name) || labels.partyB;
@@ -133,74 +142,107 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
       style: 'emphasis',
       bleed: true,
       items: [
-        textBlock(meetingTitle, { weight: 'Bolder', size: 'Large' }),
-        ...(metaLine ? [textBlock(metaLine, { isSubtle: true, spacing: 'Small' })] : []),
-        ...(linkReference ? [textBlock(linkReference, { isSubtle: true, spacing: 'None' })] : [])
+        textBlock(meetingTitle, { weight: 'Bolder', size: 'Large' })
       ]
     },
-    ...(meetingPurpose
-      ? [textBlock(`${labels.meetingPurpose}: ${meetingPurpose}`, { isSubtle: true, spacing: 'Small' })]
-      : []),
+    textBlock(labels.meetingHeader, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
     {
-      type: 'ColumnSet',
-      spacing: 'Medium',
-      columns: [
+      type: 'FactSet',
+      facts: [
         {
-          type: 'Column',
-          width: 'stretch',
-          items: [
-            textBlock(labels.keyPoints, { weight: 'Bolder', size: 'Medium' }),
-            textBlock(bulletsOrFallback(keyPointLines, notProvided), { spacing: 'Small' })
-          ]
+          title: labels.meetingTitle,
+          value: valueOrNotProvided(data.meetingHeader.meetingTitle, notProvided)
         },
         {
-          type: 'Column',
-          width: 'stretch',
-          items: [
-            textBlock('Decisions', { weight: 'Bolder', size: 'Medium' }),
-            textBlock(bulletsOrFallback(decisionLines, notProvided), { spacing: 'Small' }),
-            textBlock(labels.actionItems, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
-            textBlock(bulletsOrFallback(actionLines, notProvided), { spacing: 'Small' })
-          ]
+          title: labels.companiesParties,
+          value: valueOrNotProvided(data.meetingHeader.companiesParties, notProvided)
+        },
+        {
+          title: labels.date,
+          value: valueOrNotProvided(data.meetingHeader.date, notProvided)
+        },
+        {
+          title: labels.duration,
+          value: valueOrNotProvided(data.meetingHeader.duration, notProvided)
+        },
+        {
+          title: labels.linkReference,
+          value: valueOrNotProvided(data.meetingHeader.linkReference, notProvided)
         }
       ]
     },
+    textBlock(labels.actionItems, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
+    textBlock(labels.forEachAction, { isSubtle: true, spacing: 'Small' }),
+    ...actionItems.flatMap((item) => [
+      textBlock(`${labels.actionVerbObject} ${valueOrNotProvided(item.action, notProvided)}`, { weight: 'Bolder' }),
+      {
+        type: 'FactSet',
+        facts: [
+          {
+            title: labels.owner,
+            value: valueOrNotProvided(item.owner, notProvided)
+          },
+          {
+            title: labels.dueDate,
+            value: valueOrNotProvided(item.dueDate, notProvided)
+          },
+          {
+            title: labels.notesContext,
+            value: valueOrNotProvided(item.notes, notProvided)
+          }
+        ]
+      }
+    ]),
+    textBlock(labels.meetingPurpose, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
+    textBlock(`${labels.purposeOneSentence} ${valueOrNotProvided(data.meetingPurpose, notProvided)}`),
+    textBlock(labels.keyPoints, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
+    textBlock(labels.shortListEachPoint, { isSubtle: true, spacing: 'Small' }),
+    ...keyPoints.flatMap((point) => [
+      textBlock(`${labels.pointTitle} ${valueOrNotProvided(point.title, notProvided)}`, { weight: 'Bolder' }),
+      textBlock(`${labels.pointExplanation} ${valueOrNotProvided(point.explanation, notProvided)}`)
+    ]),
+    textBlock(labels.topicsDetailed, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
+    ...topics.flatMap((topic) => {
+      const observationLines = ensureMinCount(
+        normalizeList(topic.observations).length ? normalizeList(topic.observations) : [notProvided],
+        2,
+        () => notProvided
+      ).slice(0, SUMMARY_LIMITS.observationsPerTopic);
+      return [
+        textBlock(`${labels.topic} ${valueOrNotProvided(topic.topic, notProvided)}`, { weight: 'Bolder' }),
+        textBlock(`${labels.issueDescription} ${valueOrNotProvided(topic.issueDescription, notProvided)}`),
+        textBlock(`${labels.keyObservations}\n${bulletsOrFallback(observationLines, notProvided)}`),
+        textBlock(`${labels.rootCause} ${valueOrNotProvided(topic.rootCause, notProvided)}`),
+        textBlock(`${labels.impact} ${valueOrNotProvided(topic.impact, notProvided)}`)
+      ];
+    }),
+    textBlock(labels.pathForward, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
     {
-      type: 'Container',
-      separator: true,
-      spacing: 'Medium',
-      items: [
-        textBlock(labels.topicsDetailed, { weight: 'Bolder', size: 'Medium' }),
-        ...topics.flatMap((topic, index) => {
-          const topicTitle = valueOrNotProvided(topic.topic, notProvided);
-          const issueDescription = normalizeText(topic.issueDescription);
-          const observations = normalizeList(topic.observations);
-          const observationLines = observations.length
-            ? observations
-            : issueDescription
-              ? [issueDescription]
-              : [notProvided];
-          return [
-            textBlock(topicTitle, { weight: 'Bolder', spacing: index === 0 ? 'Small' : 'Medium' }),
-            ...(issueDescription ? [textBlock(issueDescription, { isSubtle: true, spacing: 'None' })] : []),
-            textBlock(labels.keyObservations, { isSubtle: true, spacing: 'Small' }),
-            textBlock(bulletsOrFallback(observationLines, notProvided), { spacing: 'None' })
-          ];
-        })
+      type: 'FactSet',
+      facts: [
+        {
+          title: labels.definitionOfSuccess,
+          value: valueOrNotProvided(data.pathForward.definitionOfSuccess, notProvided)
+        },
+        {
+          title: labels.agreedNextAttempt,
+          value: valueOrNotProvided(data.pathForward.agreedNextAttempt, notProvided)
+        },
+        {
+          title: labels.decisionPoint,
+          value: valueOrNotProvided(data.pathForward.decisionPoint, notProvided)
+        },
+        {
+          title: labels.checkpointDate,
+          value: valueOrNotProvided(data.pathForward.checkpointDate, notProvided)
+        }
       ]
     },
-    {
-      type: 'Container',
-      separator: true,
-      spacing: 'Medium',
-      items: [
-        textBlock(labels.nextSteps, { weight: 'Bolder', size: 'Medium' }),
-        textBlock(partyALabel, { weight: 'Bolder', spacing: 'Small' }),
-        textBlock(bulletsOrFallback(data.nextSteps.partyA.steps, notProvided), { spacing: 'None' }),
-        textBlock(partyBLabel, { weight: 'Bolder', spacing: 'Medium' }),
-        textBlock(bulletsOrFallback(data.nextSteps.partyB.steps, notProvided), { spacing: 'None' })
-      ]
-    }
+    textBlock(labels.nextSteps, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
+    textBlock(partyALabel, { weight: 'Bolder', spacing: 'Small' }),
+    textBlock(stepsOrFallback(data.nextSteps.partyA.steps, notProvided, labels.step), { spacing: 'None' }),
+    textBlock(partyBLabel, { weight: 'Bolder', spacing: 'Medium' }),
+    textBlock(stepsOrFallback(data.nextSteps.partyB.steps, notProvided, labels.step), { spacing: 'None' })
   ];
 
   return {
@@ -211,43 +253,6 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
       version: '1.5',
       msteams: { width: 'Full' },
       body
-    }
-  };
-};
-
-export const buildSummaryLoadingCard = (options?: {
-  title?: string;
-  subtitle?: string;
-  steps?: string[];
-}) => {
-  const title = options?.title?.trim() || 'Meeting summary';
-  const subtitle = options?.subtitle?.trim() || 'Working on it...';
-  const steps =
-    options?.steps?.length
-      ? options.steps
-      : ['Reading transcript', 'Extracting decisions and actions', 'Formatting the summary'];
-
-  return {
-    contentType: 'application/vnd.microsoft.card.adaptive',
-    content: {
-      $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
-      type: 'AdaptiveCard',
-      version: '1.5',
-      msteams: { width: 'Full' },
-      body: [
-        {
-          type: 'Container',
-          style: 'emphasis',
-          bleed: true,
-          items: [
-            textBlock(title, { weight: 'Bolder', size: 'Large' }),
-            textBlock(subtitle, { isSubtle: true, spacing: 'Small' })
-          ]
-        },
-        ...steps.map((step, index) =>
-          textBlock(`${index + 1}. ${step}`, { spacing: index === 0 ? 'Medium' : 'Small' })
-        )
-      ]
     }
   };
 };

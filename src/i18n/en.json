@@ -77,9 +77,12 @@
     "statusOff": "Debug logs are currently OFF."
   },
   "summary": {
-    "cardFallback": "Meeting summary"
+    "cardFallback": "Meeting summary",
+    "loadingText": "Working on it..."
   },
   "summaryTemplate": {
+    "summaryTitle": "Meeting Summary",
+    "decisions": "Decisions",
     "meetingHeader": "Meeting Header",
     "meetingTitle": "Meeting title:",
     "companiesParties": "Companies / Parties:",

@@ -64,6 +64,7 @@ This document defines the Codex agents used for this repository and how they col
   - Traces span Teams -> Graph -> OpenAI
 ## Collaboration rules
 - Never edit `.env`; update `.env.example` only.
+- All user-facing text must come from i18n catalogs (no magic strings in code).
 
 ## Related documentation
 - `README.md`

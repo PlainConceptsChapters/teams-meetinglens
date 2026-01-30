@@ -19,6 +19,7 @@ export interface ChannelRequest {
   fromUserName?: string;
   tenantId?: string;
   text: string;
+  correlationId?: string;
   attachments?: ChannelAttachment[];
   mentions?: ChannelMention[];
   value?: unknown;

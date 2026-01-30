@@ -1,6 +1,8 @@
 import { getI18nCatalog } from './catalog.js';
 
 export interface TemplateLabels {
+  summaryTitle: string;
+  decisions: string;
   meetingHeader: string;
   meetingTitle: string;
   companiesParties: string;
@@ -64,6 +66,8 @@ export const getSummaryTemplateLabels = (language?: string): TemplateLabels => {
   const targetSection = getSection(targetCatalog);
 
   return {
+    summaryTitle: getLabel(targetSection, fallbackSection, 'summaryTitle'),
+    decisions: getLabel(targetSection, fallbackSection, 'decisions'),
     meetingHeader: getLabel(targetSection, fallbackSection, 'meetingHeader'),
     meetingTitle: getLabel(targetSection, fallbackSection, 'meetingTitle'),
     companiesParties: getLabel(targetSection, fallbackSection, 'companiesParties'),
