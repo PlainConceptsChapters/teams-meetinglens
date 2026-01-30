@@ -8,6 +8,7 @@ export interface SummaryResult {
   topics: string[];
   templateData?: SummaryTemplateData;
   template?: string;
+  templateFormat?: 'markdown' | 'xml';
 }
 
 export interface QaResult {

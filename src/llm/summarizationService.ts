@@ -220,11 +220,11 @@ export class SummarizationService {
 
     const merged = partials.length === 1 ? partials[0] : mergePartialSummaries(partials);
     const redacted = redactSummary(merged);
-    const template = renderSummaryTemplate(redacted, { language: options?.language });
+    const template = renderSummaryTemplate(redacted, { language: options?.language, format: 'xml' });
     if (!template.trim()) {
       throw new OutputValidationError('Summary output is empty after rendering.');
     }
 
-    return { ...redacted, summary: template, template };
+    return { ...redacted, summary: template, template, templateFormat: 'xml' };
   }
 }

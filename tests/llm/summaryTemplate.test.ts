@@ -41,13 +41,13 @@ const baseResult: SummaryResult = {
 describe('renderSummaryTemplate', () => {
   it('renders the template with required sections', () => {
     const output = renderSummaryTemplate(baseResult, { language: 'en' });
-    expect(output).toContain('**1. Meeting Header**');
-    expect(output).toContain('**2. Action Items**');
-    expect(output).toContain('**3. Meeting Purpose**');
-    expect(output).toContain('**4. Key Points**');
-    expect(output).toContain('**5. Topics (detailed discussion)**');
-    expect(output).toContain('**6. Path Forward and Success Metrics**');
-    expect(output).toContain('**7. Next Steps**');
+    expect(output).toContain('<h3>1. Meeting Header</h3>');
+    expect(output).toContain('<h3>2. Action Items</h3>');
+    expect(output).toContain('<h3>3. Meeting Purpose</h3>');
+    expect(output).toContain('<h3>4. Key Points</h3>');
+    expect(output).toContain('<h3>5. Topics (detailed discussion)</h3>');
+    expect(output).toContain('<h3>6. Path Forward and Success Metrics</h3>');
+    expect(output).toContain('<h3>7. Next Steps</h3>');
   });
 
   it('falls back to Not provided for missing fields', () => {
