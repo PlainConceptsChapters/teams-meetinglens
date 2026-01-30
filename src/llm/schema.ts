@@ -6,6 +6,8 @@ export interface SummaryResult {
   actionItems: string[];
   decisions: string[];
   topics: string[];
+  templateData?: SummaryTemplateData;
+  template?: string;
 }
 
 export interface QaResult {
@@ -13,11 +15,174 @@ export interface QaResult {
   citations: string[];
 }
 
+export interface MeetingHeader {
+  meetingTitle: string;
+  companiesParties: string;
+  date: string;
+  duration: string;
+  linkReference: string;
+}
+
+export interface SummaryActionItem {
+  action: string;
+  owner: string;
+  dueDate: string;
+  notes: string;
+}
+
+export interface SummaryKeyPoint {
+  title: string;
+  explanation: string;
+}
+
+export interface SummaryTopic {
+  topic: string;
+  issueDescription: string;
+  observations: string[];
+  rootCause: string;
+  impact: string;
+}
+
+export interface SummaryPathForward {
+  definitionOfSuccess: string;
+  agreedNextAttempt: string;
+  decisionPoint: string;
+  checkpointDate: string;
+}
+
+export interface SummaryPartySteps {
+  name: string;
+  steps: string[];
+}
+
+export interface SummaryNextSteps {
+  partyA: SummaryPartySteps;
+  partyB: SummaryPartySteps;
+}
+
+export interface SummaryTemplateData {
+  meetingHeader: MeetingHeader;
+  actionItemsDetailed: SummaryActionItem[];
+  meetingPurpose: string;
+  keyPointsDetailed: SummaryKeyPoint[];
+  topicsDetailed: SummaryTopic[];
+  pathForward: SummaryPathForward;
+  nextSteps: SummaryNextSteps;
+}
+
 const ensureArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) {
     return [];
   }
   return value.filter((item) => typeof item === 'string');
+};
+
+const ensureString = (value: unknown): string => {
+  return typeof value === 'string' ? value : '';
+};
+
+const ensureObject = (value: unknown): Record<string, unknown> => {
+  if (!value || typeof value !== 'object') {
+    return {};
+  }
+  return value as Record<string, unknown>;
+};
+
+const parseMeetingHeader = (value: unknown): MeetingHeader => {
+  const obj = ensureObject(value);
+  return {
+    meetingTitle: ensureString(obj.meetingTitle),
+    companiesParties: ensureString(obj.companiesParties),
+    date: ensureString(obj.date),
+    duration: ensureString(obj.duration),
+    linkReference: ensureString(obj.linkReference)
+  };
+};
+
+const parseActionItemsDetailed = (value: unknown): SummaryActionItem[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((item) => {
+    const obj = ensureObject(item);
+    return {
+      action: ensureString(obj.action),
+      owner: ensureString(obj.owner),
+      dueDate: ensureString(obj.dueDate),
+      notes: ensureString(obj.notes)
+    };
+  });
+};
+
+const parseKeyPointsDetailed = (value: unknown): SummaryKeyPoint[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((item) => {
+    const obj = ensureObject(item);
+    return {
+      title: ensureString(obj.title),
+      explanation: ensureString(obj.explanation)
+    };
+  });
+};
+
+const parseTopicsDetailed = (value: unknown): SummaryTopic[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((item) => {
+    const obj = ensureObject(item);
+    return {
+      topic: ensureString(obj.topic),
+      issueDescription: ensureString(obj.issueDescription),
+      observations: ensureArray(obj.observations),
+      rootCause: ensureString(obj.rootCause),
+      impact: ensureString(obj.impact)
+    };
+  });
+};
+
+const parsePathForward = (value: unknown): SummaryPathForward => {
+  const obj = ensureObject(value);
+  return {
+    definitionOfSuccess: ensureString(obj.definitionOfSuccess),
+    agreedNextAttempt: ensureString(obj.agreedNextAttempt),
+    decisionPoint: ensureString(obj.decisionPoint),
+    checkpointDate: ensureString(obj.checkpointDate)
+  };
+};
+
+const parsePartySteps = (value: unknown): SummaryPartySteps => {
+  const obj = ensureObject(value);
+  return {
+    name: ensureString(obj.name),
+    steps: ensureArray(obj.steps)
+  };
+};
+
+const parseNextSteps = (value: unknown): SummaryNextSteps => {
+  const obj = ensureObject(value);
+  return {
+    partyA: parsePartySteps(obj.partyA),
+    partyB: parsePartySteps(obj.partyB)
+  };
+};
+
+const parseTemplateData = (value: unknown): SummaryTemplateData | undefined => {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+  const obj = value as Record<string, unknown>;
+  return {
+    meetingHeader: parseMeetingHeader(obj.meetingHeader),
+    actionItemsDetailed: parseActionItemsDetailed(obj.actionItemsDetailed),
+    meetingPurpose: ensureString(obj.meetingPurpose),
+    keyPointsDetailed: parseKeyPointsDetailed(obj.keyPointsDetailed),
+    topicsDetailed: parseTopicsDetailed(obj.topicsDetailed),
+    pathForward: parsePathForward(obj.pathForward),
+    nextSteps: parseNextSteps(obj.nextSteps)
+  };
 };
 
 export const parseSummaryResult = (raw: string): SummaryResult => {
@@ -39,7 +204,8 @@ export const parseSummaryResult = (raw: string): SummaryResult => {
     keyPoints: ensureArray(obj.keyPoints),
     actionItems: ensureArray(obj.actionItems),
     decisions: ensureArray(obj.decisions),
-    topics: ensureArray(obj.topics)
+    topics: ensureArray(obj.topics),
+    templateData: parseTemplateData(obj.templateData)
   };
 };
 

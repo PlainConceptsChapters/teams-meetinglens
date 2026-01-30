@@ -13,7 +13,15 @@ const noAnswerText: Record<string, string> = {
 export const buildSummarySystemPrompt = (language = 'en'): string => {
   const languageName = languageNames[language] ?? languageNames.en;
   return `You are a concise meeting summarizer.
-Return JSON only with keys: summary, keyPoints, actionItems, decisions, topics.
+Return JSON only with keys: summary, keyPoints, actionItems, decisions, topics, templateData.
+templateData must be an object with keys:
+- meetingHeader { meetingTitle, companiesParties, date, duration, linkReference }
+- actionItemsDetailed [ { action, owner, dueDate, notes } ]
+- meetingPurpose
+- keyPointsDetailed [ { title, explanation } ]
+- topicsDetailed [ { topic, issueDescription, observations, rootCause, impact } ]
+- pathForward { definitionOfSuccess, agreedNextAttempt, decisionPoint, checkpointDate }
+- nextSteps { partyA { name, steps }, partyB { name, steps } }
 Never include personal data beyond what appears in the transcript.
 If information is missing, use empty arrays or empty strings.
 Respond in ${languageName}.`;

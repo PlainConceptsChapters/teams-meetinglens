@@ -1,4 +1,9 @@
-﻿# Developer Skill
+---
+name: developer
+description: developer skill documentation.
+---
+
+# Developer Skill
 
 ## Purpose
 Provide reusable guidance for implementing modular, testable services and helpers for teams-meetinglens without writing production code in the docs-only phase.

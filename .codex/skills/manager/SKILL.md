@@ -1,4 +1,9 @@
-﻿# Manager Skill
+---
+name: manager
+description: manager skill documentation.
+---
+
+# Manager Skill
 
 ## Purpose
 Maintain scope control and documentation discipline for teams-meetinglens.

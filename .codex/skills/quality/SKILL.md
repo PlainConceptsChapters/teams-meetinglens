@@ -1,4 +1,9 @@
-﻿# Quality Skill
+---
+name: quality
+description: quality skill documentation.
+---
+
+# Quality Skill
 
 ## Purpose
 Define quality gates, unit-focused testing strategy, and CI expectations for teams-meetinglens.
