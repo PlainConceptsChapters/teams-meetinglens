@@ -14,7 +14,7 @@ import { ChannelRequest } from '../src/teams/types.js';
 import { buildAgendaCard, buildSignInCard } from './bot/cards.js';
 import { botMentionText, graphAccessToken, graphBaseUrl, oauthConnection, requireEnv, systemTimeZone } from './bot/config.js';
 import { loadTranslations, createI18n } from './bot/i18n.js';
-import { isLogoutCommand, isSummaryIntent } from './bot/intent.js';
+const isLogoutCommand = (text: string) => text.trim().toLowerCase().startsWith('/logout');
 import { logEvent } from './bot/logging.js';
 import { buildGraphServicesForRequest, getMeetingTranscriptService, runGraphDebug } from './bot/graph.js';
 import { createRouter } from './bot/router.js';
@@ -211,7 +211,8 @@ class TeamsBot extends TeamsActivityHandler {
 
       let loadingActivityId: string | undefined;
       let loadingTimer: NodeJS.Timeout | undefined;
-      const shouldShowSummaryLoading = isSummaryIntent(incomingText) && (graphToken || graphAccessToken);
+      const shouldShowSummaryLoading =
+        incomingText.trim().toLowerCase().startsWith('/summary') && (graphToken || graphAccessToken);
       if (shouldShowSummaryLoading) {
         const preferred = await resolvePreferredLanguage(request);
         await context.sendActivity({ type: 'typing' });

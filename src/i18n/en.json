@@ -30,6 +30,7 @@
     "noneWithTranscript": "No meetings with transcripts found for that range ({range}).",
     "cannotAccess": "I couldn't access your agenda yet. {message}",
     "searchFailed": "Agenda search failed.",
+    "futureNotSupported": "I only show past meetings so I can access transcripts. Try a past date or range.",
     "transcriptAvailable": "Transcript available",
     "noTranscript": "No transcript",
     "organizer": "Organizer: {organizer}",

@@ -1,6 +1,7 @@
 import { LlmClient } from '../llm/types.js';
 
 export type NluIntent = 'agenda' | 'summary' | 'qa' | 'help' | 'how' | 'contribute' | 'unknown';
+export type NluMeetingRecency = 'last';
 
 export interface NluDateRange {
   startDateTime: string;
@@ -13,6 +14,7 @@ export interface NluResult {
   subject?: string;
   time?: string;
   question?: string;
+  meetingRecency?: NluMeetingRecency;
 }
 
 export interface NluServiceOptions {
@@ -74,7 +76,7 @@ export class NluService {
     const prompt = [
       'You are a strict intent and entity parser for a Microsoft Teams meeting assistant.',
       'Return JSON only with this shape:',
-      '{"intent":"agenda|summary|qa|help|how|contribute|unknown","dateRange":{"startDateTime":"ISO","endDateTime":"ISO"}|null,"subject":string|null,"time":"HH:mm"|null,"question":string|null}',
+      '{"intent":"agenda|summary|qa|help|how|contribute|unknown","dateRange":{"startDateTime":"ISO","endDateTime":"ISO"}|null,"subject":string|null,"time":"HH:mm"|null,"question":string|null,"meetingRecency":"last"|null}',
       'Rules:',
       '- Use intent agenda for meeting list/calendar requests.',
       '- Use intent summary for "summary", "most important", "key points" about a meeting.',
@@ -84,6 +86,7 @@ export class NluService {
       '- If date or day is mentioned, resolve to a dateRange covering that day (00:00 to 23:59).',
       '- If a time is mentioned, return it as HH:mm (24h).',
       '- If a meeting title/keyword is mentioned, put it in subject.',
+      '- If the user asks for the last/most recent meeting, set meetingRecency to "last".',
       `Today is ${today.toISOString()}.`,
       timeZone ? `Assume time zone ${timeZone}.` : ''
     ]
@@ -111,7 +114,8 @@ export class NluService {
       dateRange: normalizeDateRange(parsed.dateRange),
       subject: parsed.subject?.trim() || undefined,
       time: normalizeTime(parsed.time),
-      question: parsed.question?.trim() || undefined
+      question: parsed.question?.trim() || undefined,
+      meetingRecency: parsed.meetingRecency === 'last' ? 'last' : undefined
     };
   }
 }

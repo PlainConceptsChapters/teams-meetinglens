@@ -6,7 +6,7 @@ AI-powered Microsoft Teams bot that retrieves meetings and transcripts via Micro
 teams-meetinglens is an enterprise-grade Microsoft Teams bot built for secure meeting discovery, transcript access (when permitted), and natural-language summarization and Q&A. The implementation is in TypeScript/Node.js.
 
 ## Core capabilities
-- Calendar search
+- Calendar search (past meetings only)
 - Meeting resolution
 - Transcript retrieval (when permitted)
 - Summarization and Q&A
@@ -138,7 +138,7 @@ Manifest SSO fields:
 - `webApplicationInfo.resource`: Application ID URI (set `TEAMS_APP_RESOURCE`)
 
 ## Localization (i18n)
-User-facing bot text is stored in English only (`src/i18n/en.json`). At runtime the bot detects the user's language and uses Azure OpenAI to translate replies back to that language. Use `/language <code>` to override detection (example: `es`, `ro`, `fr`).
+User-facing bot text is stored in English only (`src/i18n/en.json`). At runtime the bot auto-detects **English or Spanish only** and uses Azure OpenAI to translate replies back to that language. Other locales default to English unless the user sets `/language <code>` (example: `es`, `ro`, `fr`).
 
 Commands always start with `/` and are not translated (for example, `/summary`, `/qa`, `/agenda`, `/version`).
 

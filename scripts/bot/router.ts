@@ -9,15 +9,6 @@ import { BUILD_VERSION } from '../../src/version.js';
 import { handleAgendaRequest, formatRangeLabel } from './agenda.js';
 import { selectionStore, languageStore, getLanguageKey } from './stores.js';
 import { createSummaryHandlers } from './summaryHandlers.js';
-import {
-  isAgendaIntent,
-  isContributeIntent,
-  isGraphDebugIntent,
-  isHelpIntent,
-  isHowIntent,
-  isTodayIntent,
-  isWhoamiIntent
-} from './intent.js';
 import { isLogEnabled, logEvent, setLogEnabled } from './logging.js';
 
 export const createRouter = (deps: {
@@ -243,6 +234,12 @@ export const createRouter = (deps: {
         handler: async (request) => {
           const { language } = extractLanguageToken(request.text ?? '');
           const preferred = await resolvePreferredLanguage(request, language);
+          if (request.text.trim()) {
+            const nlu = await findNlu(`summarize ${request.text.trim()}`, new Date());
+            if (nlu?.meetingRecency === 'last') {
+              return summaryHandlers.handleSummaryIntent(request, preferred, request.text, nlu);
+            }
+          }
           return summaryHandlers.handleSummaryCommand(request, preferred);
         }
       },
@@ -270,7 +267,7 @@ export const createRouter = (deps: {
         textLength: englishText.length
       });
 
-      if (intent === 'agenda' || isAgendaIntent(englishText)) {
+      if (intent === 'agenda') {
         return handleAgendaRequest({
           request,
           englishText,
@@ -284,66 +281,13 @@ export const createRouter = (deps: {
           formatRangeLabel
         });
       }
-      if (intent === 'how' || isHowIntent(englishText)) {
+      if (intent === 'how') {
         return { text: await translateOutgoing(t('howItWorks'), preferred) };
       }
-      if (intent === 'help' || isHelpIntent(englishText)) {
+      if (intent === 'help') {
         return { text: await translateOutgoing(buildHelpText(), preferred) };
       }
-      if (isWhoamiIntent(englishText)) {
-        const lines = [
-          t('debug.title'),
-          t('debug.user', { value: request.fromUserId || 'unknown' }),
-          t('debug.tenant', { value: request.tenantId || 'unknown' }),
-          t('debug.graphToken', { value: request.graphToken ? 'present' : 'missing' }),
-          t('debug.oauth', { value: oauthConnection || 'not-configured' })
-        ];
-        return { text: await translateOutgoing(lines.join('\n'), preferred) };
-      }
-      if (isGraphDebugIntent(englishText)) {
-        if (!request.graphToken && !graphAccessToken) {
-          return buildSignInResponse(request, preferred);
-        }
-        const debug = await runGraphDebug(request);
-        if (!debug.ok) {
-          return { text: await translateOutgoing(t('debug.graphError', { message: debug.error ?? 'unknown' }), preferred) };
-        }
-        return {
-          text: await translateOutgoing(
-            t('debug.graphOk', {
-              count: String(debug.count ?? 0),
-              range: `${debug.start?.toISOString()} -> ${debug.end?.toISOString()}`,
-              withJoinUrl: String(debug.withJoinUrl ?? 0),
-              withTranscript: String(debug.withTranscript ?? 0)
-            }),
-            preferred
-          )
-        };
-      }
-      if (englishText.trim().toLowerCase().startsWith('/logs')) {
-        const rest = englishText.replace(/^\/logs\s*/i, '').trim().toLowerCase();
-        if (rest === 'on') {
-          setLogEnabled(request, true);
-          return { text: await translateOutgoing(t('logs.enabled'), preferred) };
-        }
-        if (rest === 'off') {
-          setLogEnabled(request, false);
-          return { text: await translateOutgoing(t('logs.disabled'), preferred) };
-        }
-        const status = isLogEnabled(request) ? t('logs.statusOn') : t('logs.statusOff');
-        return { text: await translateOutgoing(status, preferred) };
-      }
-      if (isTodayIntent(englishText)) {
-        const today = new Date();
-        const formatted = today.toLocaleDateString('en-US', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
-        return { text: await translateOutgoing(t('date.today', { date: formatted }), preferred) };
-      }
-      if (intent === 'contribute' || isContributeIntent(englishText)) {
+      if (intent === 'contribute') {
         return {
           text: await translateOutgoing(
             t('contribute', { repoUrl: 'https://github.com/PlainConceptsGC/teams-meetinglens' }),

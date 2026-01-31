@@ -54,6 +54,7 @@ const hasNonAscii = (text?: string) => {
 
 export const createI18n = (translations: TranslationCatalog, buildLlmClient: () => LlmClient) => {
   let translationService: TranslationService | undefined;
+  const autoLanguageAllowList = new Set<LanguageCode>(['en', 'es']);
 
   const t = (keyPath: string, vars?: Record<string, string>): string => {
     const value = keyPath.split('.').reduce<unknown>((acc, key) => {
@@ -129,15 +130,16 @@ export const createI18n = (translations: TranslationCatalog, buildLlmClient: () 
       if (isLikelyEnglishText(request.text)) {
         return 'en';
       }
-      return locale;
+      return autoLanguageAllowList.has(locale) ? locale : 'en';
     }
     if (hasNonAscii(request.text)) {
       const service = getTranslationService();
       if (service && request.text) {
         try {
           const detected = normalizeLanguage(await service.detectLanguage(request.text)) ?? 'en';
-          languageStore.set(getLanguageKey(request), detected);
-          return detected;
+          const resolved = autoLanguageAllowList.has(detected) ? detected : 'en';
+          languageStore.set(getLanguageKey(request), resolved);
+          return resolved;
         } catch {
           return 'en';
         }

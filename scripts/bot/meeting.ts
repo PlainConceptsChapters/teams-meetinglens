@@ -102,3 +102,34 @@ export const getTranscriptFromMeetingContext = async (
     joinUrl: request.meetingJoinUrl
   });
 };
+
+export const findMostRecentMeetingWithTranscript = async (params: {
+  request: ChannelRequest;
+  buildGraphServicesForRequest: (request: ChannelRequest) => { agendaService: { searchAgenda: Function } };
+  lookbackDays?: number;
+}): Promise<AgendaItem | undefined> => {
+  const { request, buildGraphServicesForRequest, lookbackDays = 14 } = params;
+  const now = new Date();
+  const start = new Date(now);
+  start.setDate(start.getDate() - lookbackDays);
+  const { agendaService } = buildGraphServicesForRequest(request);
+  const agenda = await agendaService.searchAgenda({
+    startDateTime: start.toISOString(),
+    endDateTime: now.toISOString(),
+    includeTranscriptAvailability: true,
+    top: 50
+  });
+  const items = (agenda.items as AgendaItem[]).filter((item) => {
+    const startTime = item.start ? new Date(item.start) : undefined;
+    return item.transcriptAvailable && (!startTime || startTime <= now);
+  });
+  if (!items.length) {
+    return undefined;
+  }
+  items.sort((a, b) => {
+    const aTime = a.start ? new Date(a.start).getTime() : 0;
+    const bTime = b.start ? new Date(b.start).getTime() : 0;
+    return bTime - aTime;
+  });
+  return items[0];
+};

@@ -5,11 +5,11 @@ import { SummarizationService } from '../../src/llm/summarizationService.js';
 import { buildSummaryAdaptiveCard } from '../../src/llm/summaryAdaptiveCard.js';
 import type { ChannelRequest, ChannelResponse } from '../../src/teams/types.js';
 import type { LanguageCode } from '../../src/teams/language.js';
-import type { NluResult } from '../../src/teams/nluService.js';
 import type { LlmClient } from '../../src/llm/types.js';
 import { selectionStore } from './stores.js';
 import { answerWithLogging, summarizeWithLogging } from './llm.js';
-import { findMeetingFromNlu, getTranscriptFromMeetingContext } from './meeting.js';
+import { findMeetingFromNlu, findMostRecentMeetingWithTranscript, getTranscriptFromMeetingContext } from './meeting.js';
+import type { NluResult } from '../../src/teams/nluService.js';
 
 export const createSummaryHandlers = (deps: {
   graphAccessToken?: string;
@@ -34,12 +34,44 @@ export const createSummaryHandlers = (deps: {
     t
   } = deps;
 
+  const summarizeMostRecentMeeting = async (
+    request: ChannelRequest,
+    preferred: LanguageCode,
+    correlationId: string
+  ): Promise<ChannelResponse | undefined> => {
+    const recent = await findMostRecentMeetingWithTranscript({
+      request,
+      buildGraphServicesForRequest
+    });
+    if (!recent) {
+      return undefined;
+    }
+    const { onlineMeetingService, transcriptService } = getMeetingTranscriptService(request);
+    const transcriptLookup = new MeetingTranscriptService({
+      onlineMeetingService: onlineMeetingService as any,
+      transcriptService: transcriptService as any
+    });
+    const transcript = await transcriptLookup.getTranscriptForAgendaItem(recent);
+    const client = buildSummaryLlmClient();
+    const mergeClient = buildLlmClient();
+    const summarizer = new SummarizationService({ client, mergeClient });
+    const result = await summarizeWithLogging(request, transcript, summarizer, { language: 'en' }, correlationId);
+    const card = buildSummaryAdaptiveCard(result, { language: 'en' });
+    return {
+      text: await translateOutgoing(t('summary.cardFallback'), preferred),
+      metadata: { adaptiveCard: JSON.stringify(card) }
+    };
+  };
+
   const handleSummaryCommand = async (request: ChannelRequest, preferred: LanguageCode): Promise<ChannelResponse> => {
     const correlationId = request.correlationId ?? crypto.randomUUID();
     if (!request.graphToken && !graphAccessToken) {
       return buildSignInResponse(request, preferred);
     }
     const store = selectionStore.get(request.conversationId);
+    if (store && !store.items.length) {
+      selectionStore.delete(request.conversationId);
+    }
     if (!store || !store.items.length) {
       try {
         const transcript = await getTranscriptFromMeetingContext(request, getMeetingTranscriptService);
@@ -108,6 +140,12 @@ export const createSummaryHandlers = (deps: {
     const correlationId = request.correlationId ?? crypto.randomUUID();
     if (!request.graphToken && !graphAccessToken) {
       return buildSignInResponse(request, preferred);
+    }
+    if (nlu?.meetingRecency === 'last') {
+      const response = await summarizeMostRecentMeeting(request, preferred, correlationId);
+      if (response) {
+        return response;
+      }
     }
     const store = selectionStore.get(request.conversationId);
     const selected = store?.items?.[0]?.agendaItem;

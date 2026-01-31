@@ -9,20 +9,20 @@ export const formatDateRange = (range: { start: Date; end: Date }) => ({
   endDateTime: range.end.toISOString()
 });
 
-export const parseAgendaRange = (text: string): { start: Date; end: Date; remainder: string } => {
+export const parseAgendaRange = (text: string): { start: Date; end: Date; remainder: string; isFutureQuery: boolean } => {
   const now = new Date();
   const tokens = text.toLowerCase();
   const explicit = parseExplicitDate(tokens);
   if (explicit) {
-    return explicit;
+    return { ...explicit, isFutureQuery: explicit.start > now };
   }
   const relativeWeekday = parseRelativeWeekday(tokens, now);
   if (relativeWeekday) {
-    return relativeWeekday;
+    return { ...relativeWeekday, isFutureQuery: relativeWeekday.start > now };
   }
   const relativeDays = parseRelativeDays(tokens, now);
   if (relativeDays) {
-    return relativeDays;
+    return { ...relativeDays, isFutureQuery: false };
   }
   if (tokens.includes('yesterday') || tokens.includes('ayer') || tokens.includes('ieri')) {
     const start = new Date(now);
@@ -30,14 +30,14 @@ export const parseAgendaRange = (text: string): { start: Date; end: Date; remain
     start.setHours(0, 0, 0, 0);
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
-    return { start, end, remainder: text.replace(/yesterday|ayer|ieri/gi, '').trim() };
+    return { start, end, remainder: text.replace(/yesterday|ayer|ieri/gi, '').trim(), isFutureQuery: false };
   }
   if (tokens.includes('today') || tokens.includes('hoy') || tokens.includes('azi')) {
     const start = new Date(now);
     start.setHours(0, 0, 0, 0);
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
-    return { start, end, remainder: text.replace(/today|hoy|azi/gi, '').trim() };
+    return { start, end, remainder: text.replace(/today|hoy|azi/gi, '').trim(), isFutureQuery: false };
   }
   if (tokens.includes('tomorrow') || tokens.includes('manana') || tokens.includes('maine')) {
     const start = new Date(now);
@@ -45,18 +45,18 @@ export const parseAgendaRange = (text: string): { start: Date; end: Date; remain
     start.setHours(0, 0, 0, 0);
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
-    return { start, end, remainder: text.replace(/tomorrow|manana|maine/gi, '').trim() };
+    return { start, end, remainder: text.replace(/tomorrow|manana|maine/gi, '').trim(), isFutureQuery: true };
   }
   if (tokens.includes('week') || tokens.includes('semana') || tokens.includes('saptamana')) {
     const start = new Date(now);
     const end = new Date(now);
     end.setDate(end.getDate() + 7);
-    return { start, end, remainder: text.replace(/week|semana|saptamana/gi, '').trim() };
+    return { start, end, remainder: text.replace(/week|semana|saptamana/gi, '').trim(), isFutureQuery: true };
   }
   const start = new Date(now);
   const end = new Date(now);
   end.setDate(end.getDate() + 7);
-  return { start, end, remainder: text.trim() };
+  return { start, end, remainder: text.trim(), isFutureQuery: true };
 };
 
 const parseRelativeDays = (text: string, base: Date): { start: Date; end: Date; remainder: string } | undefined => {
@@ -266,6 +266,12 @@ export const handleAgendaRequest = async (params: {
   const fallbackRange = parseAgendaRange(englishText);
   const nluRange = resolveDateRangeFromNlu(nlu);
   const range = nluRange ?? { start: fallbackRange.start, end: fallbackRange.end };
+  const now = new Date();
+  if (fallbackRange.isFutureQuery && range.start > now) {
+    return { text: await translateOutgoing(t('agenda.futureNotSupported'), preferred) };
+  }
+  const cappedEnd = range.end > now ? now : range.end;
+  const cappedRange = { start: range.start, end: cappedEnd };
   const explicitSubject = /\b(about|subject|titled|called|with|regarding|keyword)\b/i.test(englishText);
   const subjectCandidate = stripDateNoise(nlu?.subject ?? fallbackRange.remainder);
   const subjectQuery = explicitSubject && subjectCandidate.length >= 3 ? subjectCandidate : '';
@@ -273,7 +279,7 @@ export const handleAgendaRequest = async (params: {
   let agenda;
   try {
     agenda = await agendaService.searchAgenda({
-      ...formatDateRange(range),
+      ...formatDateRange(cappedRange),
       subjectContains: subjectQuery || undefined,
       includeTranscriptAvailability: true,
       top: 10
@@ -287,8 +293,8 @@ export const handleAgendaRequest = async (params: {
   const items = agenda.items as AgendaItem[];
   if (isLogEnabled(request)) {
     logEvent(request, 'agenda_result', {
-      rangeStart: range.start.toISOString(),
-      rangeEnd: range.end.toISOString(),
+      rangeStart: cappedRange.start.toISOString(),
+      rangeEnd: cappedRange.end.toISOString(),
       subjectQuery,
       totalItems: items.length,
       joinUrlCount: items.filter((item) => item.joinUrl).length,
@@ -297,13 +303,16 @@ export const handleAgendaRequest = async (params: {
   }
   if (!items.length) {
     return {
-      text: await translateOutgoing(t('agenda.none', { range: formatRangeLabel(range) }), preferred)
+      text: await translateOutgoing(t('agenda.none', { range: formatRangeLabel(cappedRange) }), preferred)
     };
   }
-  const filtered = items.filter((item) => item.transcriptAvailable);
+  const filtered = items.filter((item) => {
+    const start = item.start ? new Date(item.start) : undefined;
+    return item.transcriptAvailable && (!start || start <= now);
+  });
   if (!filtered.length) {
     return {
-      text: await translateOutgoing(t('agenda.noneWithTranscript', { range: formatRangeLabel(range) }), preferred)
+      text: await translateOutgoing(t('agenda.noneWithTranscript', { range: formatRangeLabel(cappedRange) }), preferred)
     };
   }
   const formatted = filtered.map((item, index) => {

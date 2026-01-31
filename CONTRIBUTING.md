@@ -117,7 +117,7 @@ Notes:
 - Make sure the App ID in the manifest matches the Azure Bot/Entra App ID.
 
 ## Localization
-Bot text is authored in English only (`src/i18n/en.json`). The bot detects the user's language and uses Azure OpenAI to translate responses at runtime. Use `/language <code>` to override detection (example: `es`, `ro`, `fr`).
+Bot text is authored in English only (`src/i18n/en.json`). The bot auto-detects **English or Spanish only** and uses Azure OpenAI to translate responses at runtime. Other locales default to English unless the user sets `/language <code>` (example: `es`, `ro`, `fr`). Agenda results are past-only so transcripts are more likely to be available.
 Commands always start with `/` and are not translated (for example, `/summary`, `/qa`, `/agenda`).
 
 ## Related docs
