@@ -5,6 +5,7 @@ import type { ChannelRequest, ChannelResponse } from '../../src/teams/types.js';
 import type { LanguageCode } from '../../src/teams/language.js';
 import type { NluResult } from '../../src/teams/nluService.js';
 import type { LlmClient } from '../../src/llm/types.js';
+import { BUILD_VERSION } from '../../src/version.js';
 import { handleAgendaRequest, formatRangeLabel } from './agenda.js';
 import { selectionStore, languageStore, getLanguageKey } from './stores.js';
 import { createSummaryHandlers } from './summaryHandlers.js';
@@ -105,6 +106,13 @@ export const createRouter = (deps: {
   return new TeamsCommandRouter({
     botMentionText,
     routes: [
+      {
+        command: 'version',
+        handler: async (request) => {
+          const language = await resolvePreferredLanguage(request);
+          return { text: await translateOutgoing(t('version.text', { version: BUILD_VERSION }), language) };
+        }
+      },
       {
         command: 'help',
         handler: async (request) => {

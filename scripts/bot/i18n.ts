@@ -161,6 +161,7 @@ export const createI18n = (translations: TranslationCatalog, buildLlmClient: () 
       t('help.contribute'),
       t('help.help'),
       t('help.whoami'),
+      t('help.version'),
       t('help.graphdebug'),
       t('help.logs'),
       t('help.logout'),

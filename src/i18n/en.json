@@ -12,6 +12,7 @@
     "contribute": "/contribute - how to contribute and repo link",
     "help": "/help - show this message",
     "whoami": "/whoami - show debug info (user, tenant, token status)",
+    "version": "/version - show the current build version",
     "graphdebug": "/graphdebug - test Graph access and transcript availability",
     "logs": "/logs on|off - toggle debug logs for this chat",
     "logout": "/logout - sign out of the bot",
@@ -52,6 +53,9 @@
   },
   "date": {
     "today": "Today is {date}."
+  },
+  "version": {
+    "text": "Version: {version}"
   },
   "auth": {
     "signIn": "Please sign in so I can access your agenda and transcripts. After you click Sign in, you may be shown a 6-digit code (example: 646012). Copy and paste that code here in the chat — I’m waiting for it.",

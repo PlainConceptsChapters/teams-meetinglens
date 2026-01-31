@@ -14,6 +14,10 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
+      - name: Stamp build version
+        run: |
+          VERSION="$(date -u +'%Y%m%d-%H%M')"
+          echo "export const BUILD_VERSION = '${VERSION}';" > src/version.ts
       - name: Install, typecheck, test, and build
         run: |
           npm ci

@@ -25,6 +25,7 @@ export * from './llm/summarizationService.js';
 export * from './llm/qnaService.js';
 export * from './llm/azureOpenAiClient.js';
 export * from './llm/translationService.js';
+export * from './version.js';
 export * from './teams/types.js';
 export * from './teams/normalize.js';
 export * from './teams/router.js';
