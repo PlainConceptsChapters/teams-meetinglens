@@ -105,10 +105,10 @@ export const createSummaryHandlers = (deps: {
         summaryOptions
       );
       await updateProgress(request, 'progress.summary', 'progress.steps.rendering', 92);
-      const summaryText = renderSummaryTemplate(result, { language: 'en', format: 'markdown' });
+      const summaryText = renderSummaryTemplate(result, { language: preferred, format: 'markdown' });
       const text = `${buildSelectionPrefix(request)}${summaryText}\n${t('summary.followupHint')}`;
       return {
-        text: await translateOutgoing(text, preferred)
+        text
       };
     } catch {
       return { text: await translateOutgoing(`${t('summary.failed')}\n${t('summary.retryHint')}`, preferred) };
