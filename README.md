@@ -57,6 +57,11 @@ AGENDA_MAX_ITEMS=
 AGENDA_MAX_TRANSCRIPT_CHECKS=
 CALENDAR_MAX_PAGES=
 SELECTION_TTL_MINUTES=
+SUMMARY_MAX_TOKENS_PER_CHUNK=
+SUMMARY_OVERLAP_TOKENS=
+SUMMARY_MAX_CHUNKS=
+SUMMARY_PARALLELISM=
+SUMMARY_MAX_PARALLELISM=
 ```
 
 ## Non-goals (for now)
@@ -174,6 +179,13 @@ Agenda tuning variables:
 - `AGENDA_MAX_TRANSCRIPT_CHECKS` (max transcript availability checks per request)
 - `CALENDAR_MAX_PAGES` (Graph calendar pagination pages)
 - `SELECTION_TTL_MINUTES` (how long a meeting selection stays active)
+
+Summary tuning variables:
+- `SUMMARY_MAX_TOKENS_PER_CHUNK` (token target for chunking)
+- `SUMMARY_OVERLAP_TOKENS` (overlap between chunks)
+- `SUMMARY_MAX_CHUNKS` (max chunks to summarize)
+- `SUMMARY_PARALLELISM` (parallel chunk summaries)
+- `SUMMARY_MAX_PARALLELISM` (cap for parallelism)
 
 
 Testing scope reminder:

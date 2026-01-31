@@ -15,6 +15,7 @@ export const buildSummarySystemPrompt = (language = 'en'): string => {
   return `You are a concise meeting summarizer.
 Return JSON only with keys: summary, keyPoints, actionItems, decisions, topics, templateData.
 Do not include markdown, code fences, or extra commentary.
+Output must be valid JSON (single object, no trailing commas).
 templateData must be an object with keys:
 - meetingHeader { meetingTitle, companiesParties, date, duration, linkReference }
 - actionItemsDetailed [ { action, owner, dueDate, notes } ]
@@ -51,6 +52,7 @@ export const buildSummaryMergeSystemPrompt = (language = 'en'): string => {
   return `You merge partial meeting summaries into one final summary.
 Return JSON only with keys: summary, keyPoints, actionItems, decisions, topics, templateData.
 Do not include markdown, code fences, or extra commentary.
+Output must be valid JSON (single object, no trailing commas).
 templateData must be an object with keys:
 - meetingHeader { meetingTitle, companiesParties, date, duration, linkReference }
 - actionItemsDetailed [ { action, owner, dueDate, notes } ]

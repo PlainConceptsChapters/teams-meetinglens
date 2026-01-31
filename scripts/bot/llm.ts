@@ -28,14 +28,15 @@ export const summarizeWithLogging = async (
   transcript: TranscriptContent,
   summarizer: SummarizationService,
   options: { language: SummaryLanguage },
-  correlationId: string
+  correlationId: string,
+  chunkingOptions: { maxTokensPerChunk: number; overlapTokens: number; maxChunks: number } = SUMMARY_LOGGING_OPTIONS
 ) => {
   const transcriptText = buildTranscriptTextForLogging(transcript);
   const chunks = chunkText(
     transcriptText,
-    SUMMARY_LOGGING_OPTIONS.maxTokensPerChunk,
-    SUMMARY_LOGGING_OPTIONS.overlapTokens
-  ).slice(0, SUMMARY_LOGGING_OPTIONS.maxChunks);
+    chunkingOptions.maxTokensPerChunk,
+    chunkingOptions.overlapTokens
+  ).slice(0, chunkingOptions.maxChunks);
   logEvent(request, 'summary_request', {
     component: 'llm',
     correlationId,

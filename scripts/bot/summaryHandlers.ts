@@ -14,6 +14,7 @@ import { findMeetingFromNlu, findMostRecentMeetingWithTranscript, getTranscriptF
 import type { NluResult } from '../../src/teams/nluService.js';
 import { formatAgendaItem } from './agenda.js';
 import { logEvent } from './logging.js';
+import { summaryOptions } from './config.js';
 
 export const createSummaryHandlers = (deps: {
   graphAccessToken?: string;
@@ -84,6 +85,7 @@ export const createSummaryHandlers = (deps: {
       const summarizer = new SummarizationService({
         client,
         mergeClient,
+        options: summaryOptions,
         onProgress: async (update) => {
           if (update.stage === 'chunk' && update.total) {
             const percent = 40 + Math.round((update.completed / update.total) * 40);
@@ -94,7 +96,14 @@ export const createSummaryHandlers = (deps: {
           }
         }
       });
-      const result = await summarizeWithLogging(request, transcript, summarizer, { language: 'en' }, correlationId);
+      const result = await summarizeWithLogging(
+        request,
+        transcript,
+        summarizer,
+        { language: 'en' },
+        correlationId,
+        summaryOptions
+      );
       await updateProgress(request, 'progress.summary', 'progress.steps.rendering', 92);
       const card = buildSummaryAdaptiveCard(result, { language: 'en' });
       const text = `${buildSelectionPrefix(request)}${t('summary.cardFallback')}\n${t('summary.followupHint')}`;

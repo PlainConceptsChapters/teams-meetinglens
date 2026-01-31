@@ -29,3 +29,16 @@ const agendaTranscriptChecks = parseNumber(process.env.AGENDA_MAX_TRANSCRIPT_CHE
 export const agendaMaxTranscriptChecks = Math.max(agendaMaxItems, agendaTranscriptChecks);
 export const calendarMaxPages = parseNumber(process.env.CALENDAR_MAX_PAGES, 3);
 export const selectionTtlMs = parseMinutes(process.env.SELECTION_TTL_MINUTES, 60);
+
+const summaryMaxTokensPerChunk = parseNumber(process.env.SUMMARY_MAX_TOKENS_PER_CHUNK, 1500);
+const summaryOverlapTokens = parseNumber(process.env.SUMMARY_OVERLAP_TOKENS, 150);
+const summaryMaxChunks = parseNumber(process.env.SUMMARY_MAX_CHUNKS, 6);
+const summaryParallelism = parseNumber(process.env.SUMMARY_PARALLELISM, 3);
+const summaryMaxParallelism = parseNumber(process.env.SUMMARY_MAX_PARALLELISM, 4);
+
+export const summaryOptions = {
+  maxTokensPerChunk: summaryMaxTokensPerChunk,
+  overlapTokens: summaryOverlapTokens,
+  maxChunks: summaryMaxChunks,
+  parallelism: Math.min(summaryParallelism, summaryMaxParallelism)
+};
