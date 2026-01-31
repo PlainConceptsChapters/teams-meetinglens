@@ -4,8 +4,6 @@ import { SUMMARY_LIMITS } from './summaryLimits.js';
 
 export type SummaryCardLanguage = 'en' | 'es' | 'ro' | string;
 
-const normalizeText = (value?: string) => value?.trim() ?? '';
-
 const MAX_FIELD_CHARS = 140;
 
 const valueOrNotProvided = (value: string | undefined, notProvided: string): string => {
