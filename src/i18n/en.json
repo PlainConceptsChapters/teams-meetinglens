@@ -1,7 +1,7 @@
 {
   "help": {
     "title": "What I can do:",
-    "overview": "- Show your agenda and highlight meetings with transcripts\n- Let you pick a meeting and summarize it\n- Answer questions about a meeting transcript\n- Reply in your language (auto-detected)\n- You can ask in natural language (for example: \"meetings from last Monday\")\n- Commands start with / and are not translated\n- Use /help any time to see the full command list (including debug tools)",
+    "overview": "- Show your agenda and highlight meetings with transcripts\n- Let you pick a meeting (click a button or type its number) and summarize it\n- Answer questions about a meeting transcript\n- Reply in your language (auto-detected)\n- You can ask in natural language (for example: \"meetings from last Monday\")\n- Commands start with / and are not translated\n- Use /help any time to see the full command list (including debug tools)",
     "commandsTitle": "Commands:",
     "agenda": "/agenda [today|tomorrow|week|yesterday|last 7 days] [keyword] - list meetings in a range, optional keyword filter",
     "select": "/select <number> - choose a meeting from the last agenda list",
@@ -39,6 +39,7 @@
   },
   "selection": {
     "needAgenda": "Please run /agenda first.",
+    "needSelection": "Please select a meeting from the last agenda list (click a button or type its number).",
     "invalid": "Invalid selection. Choose one of the listed numbers.",
     "selected": "Selected: {title}"
   },
@@ -85,7 +86,8 @@
   "summary": {
     "cardFallback": "Meeting summary",
     "loadingText": "Working on your summary...",
-    "loadingMore": "Extracting more information..."
+    "loadingMore": "Extracting more information...",
+    "failed": "I couldn't build the summary. Please try again."
   },
   "summaryTemplate": {
     "summaryTitle": "Meeting Summary",

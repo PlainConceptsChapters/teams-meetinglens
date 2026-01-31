@@ -38,6 +38,8 @@ const SUMMARY = JSON.stringify({
 });
 
 const QA = JSON.stringify({ answer: 'Yes', citations: ['00:00:01'] });
+const SUMMARY_WITH_PREAMBLE = `Here is the JSON:\n\`\`\`json\n${SUMMARY}\n\`\`\``;
+const QA_WITH_PREAMBLE = `Answer:\n${QA}\nThanks.`;
 
 describe('schema parsers', () => {
   it('parses summary schema', () => {
@@ -53,5 +55,15 @@ describe('schema parsers', () => {
     const parsed = parseQaResult(QA);
     expect(parsed.answer).toBe('Yes');
     expect(parsed.citations).toEqual(['00:00:01']);
+  });
+
+  it('parses summary schema from wrapped output', () => {
+    const parsed = parseSummaryResult(SUMMARY_WITH_PREAMBLE);
+    expect(parsed.summary).toBe('Done');
+  });
+
+  it('parses qa schema from wrapped output', () => {
+    const parsed = parseQaResult(QA_WITH_PREAMBLE);
+    expect(parsed.answer).toBe('Yes');
   });
 });

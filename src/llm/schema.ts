@@ -186,13 +186,70 @@ const parseTemplateData = (value: unknown): SummaryTemplateData | undefined => {
   };
 };
 
-export const parseSummaryResult = (raw: string): SummaryResult => {
-  let data: unknown;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    throw new InvalidRequestError('Summary response is not valid JSON.');
+const extractJsonObject = (input: string): string | undefined => {
+  const text = input.trim();
+  if (!text) {
+    return undefined;
   }
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === '{') {
+      if (depth === 0) {
+        start = i;
+      }
+      depth += 1;
+      continue;
+    }
+    if (char === '}' && depth > 0) {
+      depth -= 1;
+      if (depth === 0 && start >= 0) {
+        return text.slice(start, i + 1);
+      }
+    }
+  }
+  return undefined;
+};
+
+const parseJsonPayload = (raw: string, errorMessage: string): unknown => {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const extracted = extractJsonObject(raw);
+    if (!extracted) {
+      throw new InvalidRequestError(errorMessage);
+    }
+    try {
+      return JSON.parse(extracted);
+    } catch {
+      throw new InvalidRequestError(errorMessage);
+    }
+  }
+};
+
+export const parseSummaryResult = (raw: string): SummaryResult => {
+  const data = parseJsonPayload(raw, 'Summary response is not valid JSON.');
   if (!data || typeof data !== 'object') {
     throw new InvalidRequestError('Summary response is not an object.');
   }
@@ -211,12 +268,7 @@ export const parseSummaryResult = (raw: string): SummaryResult => {
 };
 
 export const parseQaResult = (raw: string): QaResult => {
-  let data: unknown;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    throw new InvalidRequestError('Q&A response is not valid JSON.');
-  }
+  const data = parseJsonPayload(raw, 'Q&A response is not valid JSON.');
   if (!data || typeof data !== 'object') {
     throw new InvalidRequestError('Q&A response is not an object.');
   }

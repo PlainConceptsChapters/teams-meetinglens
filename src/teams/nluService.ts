@@ -1,6 +1,6 @@
 import { LlmClient } from '../llm/types.js';
 
-export type NluIntent = 'agenda' | 'summary' | 'qa' | 'help' | 'how' | 'contribute' | 'unknown';
+export type NluIntent = 'agenda' | 'summary' | 'qa' | 'help' | 'how' | 'contribute' | 'select' | 'unknown';
 export type NluMeetingRecency = 'last';
 
 export interface NluDateRange {
@@ -15,6 +15,7 @@ export interface NluResult {
   time?: string;
   question?: string;
   meetingRecency?: NluMeetingRecency;
+  selectionNumber?: number;
 }
 
 export interface NluServiceOptions {
@@ -76,17 +77,19 @@ export class NluService {
     const prompt = [
       'You are a strict intent and entity parser for a Microsoft Teams meeting assistant.',
       'Return JSON only with this shape:',
-      '{"intent":"agenda|summary|qa|help|how|contribute|unknown","dateRange":{"startDateTime":"ISO","endDateTime":"ISO"}|null,"subject":string|null,"time":"HH:mm"|null,"question":string|null,"meetingRecency":"last"|null}',
+      '{"intent":"agenda|summary|qa|help|how|contribute|select|unknown","dateRange":{"startDateTime":"ISO","endDateTime":"ISO"}|null,"subject":string|null,"time":"HH:mm"|null,"question":string|null,"meetingRecency":"last"|null,"selectionNumber":number|null}',
       'Rules:',
       '- Use intent agenda for meeting list/calendar requests.',
-      '- Use intent summary for "summary", "most important", "key points" about a meeting.',
+      '- Use intent summary for "summary", "most important", "key points", "summarize it/this/that" about a meeting.',
       '- Use intent qa when the user asks a question about a meeting content.',
       '- Use intent help/how/contribute when asked.',
+      '- Use intent select when the user picks a meeting number (for example "2", "select 2").',
       '- If no clear intent, use unknown.',
       '- If date or day is mentioned, resolve to a dateRange covering that day (00:00 to 23:59).',
       '- If a time is mentioned, return it as HH:mm (24h).',
       '- If a meeting title/keyword is mentioned, put it in subject.',
       '- If the user asks for the last/most recent meeting, set meetingRecency to "last".',
+      '- If the message is only a number, set intent select and selectionNumber to that number.',
       `Today is ${today.toISOString()}.`,
       timeZone ? `Assume time zone ${timeZone}.` : ''
     ]
@@ -105,9 +108,14 @@ export class NluService {
       parsed.intent === 'qa' ||
       parsed.intent === 'help' ||
       parsed.intent === 'how' ||
-      parsed.intent === 'contribute'
+      parsed.intent === 'contribute' ||
+      parsed.intent === 'select'
         ? parsed.intent
         : 'unknown';
+    const selectionNumber =
+      typeof parsed.selectionNumber === 'number' && Number.isFinite(parsed.selectionNumber) && parsed.selectionNumber > 0
+        ? Math.floor(parsed.selectionNumber)
+        : undefined;
 
     return {
       intent,
@@ -115,7 +123,8 @@ export class NluService {
       subject: parsed.subject?.trim() || undefined,
       time: normalizeTime(parsed.time),
       question: parsed.question?.trim() || undefined,
-      meetingRecency: parsed.meetingRecency === 'last' ? 'last' : undefined
+      meetingRecency: parsed.meetingRecency === 'last' ? 'last' : undefined,
+      selectionNumber
     };
   }
 }

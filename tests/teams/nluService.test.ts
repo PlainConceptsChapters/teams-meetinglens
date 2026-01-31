@@ -24,4 +24,12 @@ describe('NluService', () => {
     const result = await service.parse('hello', new Date('2026-01-28T00:00:00Z'));
     expect(result.intent).toBe('unknown');
   });
+
+  it('parses selection intent and number', async () => {
+    const client = createClient('{"intent":"select","selectionNumber":2}');
+    const service = new NluService({ client });
+    const result = await service.parse('2', new Date('2026-01-28T00:00:00Z'));
+    expect(result.intent).toBe('select');
+    expect(result.selectionNumber).toBe(2);
+  });
 });

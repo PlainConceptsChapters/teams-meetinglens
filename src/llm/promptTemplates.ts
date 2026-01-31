@@ -14,6 +14,7 @@ export const buildSummarySystemPrompt = (language = 'en'): string => {
   const languageName = languageNames[language] ?? languageNames.en;
   return `You are a concise meeting summarizer.
 Return JSON only with keys: summary, keyPoints, actionItems, decisions, topics, templateData.
+Do not include markdown, code fences, or extra commentary.
 templateData must be an object with keys:
 - meetingHeader { meetingTitle, companiesParties, date, duration, linkReference }
 - actionItemsDetailed [ { action, owner, dueDate, notes } ]
@@ -34,6 +35,7 @@ export const buildQaSystemPrompt = (language = 'en'): string => {
   return `You answer questions using only the provided transcript context.
 If the answer is not in the context, say "${fallback}".
 Return JSON only with keys: answer, citations.
+Do not include markdown, code fences, or extra commentary.
 Respond in ${languageName}.`;
 };
 
@@ -45,6 +47,7 @@ export const buildSummaryMergeSystemPrompt = (language = 'en'): string => {
   const languageName = languageNames[language] ?? languageNames.en;
   return `You merge partial meeting summaries into one final summary.
 Return JSON only with keys: summary, keyPoints, actionItems, decisions, topics, templateData.
+Do not include markdown, code fences, or extra commentary.
 templateData must be an object with keys:
 - meetingHeader { meetingTitle, companiesParties, date, duration, linkReference }
 - actionItemsDetailed [ { action, owner, dueDate, notes } ]

@@ -7,7 +7,7 @@ import type { NluResult } from '../../src/teams/nluService.js';
 import type { LlmClient } from '../../src/llm/types.js';
 import { BUILD_VERSION } from '../../src/version.js';
 import { handleAgendaRequest, formatRangeLabel } from './agenda.js';
-import { selectionStore, languageStore, getLanguageKey } from './stores.js';
+import { selectionStore, languageStore, getLanguageKey, getSelectedItem } from './stores.js';
 import { createSummaryHandlers } from './summaryHandlers.js';
 import { isLogEnabled, logEvent, setLogEnabled } from './logging.js';
 
@@ -96,6 +96,34 @@ export const createRouter = (deps: {
     translateOutgoing,
     t
   });
+
+  const handleSelection = async (request: ChannelRequest, selectionValue?: string | number): Promise<ChannelResponse> => {
+    const store = selectionStore.get(request.conversationId);
+    if (!store || !store.items.length) {
+      const language = await resolvePreferredLanguage(request);
+      return { text: await translateOutgoing(t('selection.needAgenda'), language) };
+    }
+    const index = typeof selectionValue === 'number' ? selectionValue : Number(selectionValue);
+    if (!Number.isFinite(index) || index < 1 || index > store.items.length) {
+      const language = await resolvePreferredLanguage(request);
+      return { text: await translateOutgoing(t('selection.invalid'), language) };
+    }
+    store.selectedIndex = index;
+    selectionStore.set(request.conversationId, store);
+    const selected = getSelectedItem(store);
+    const language = await resolvePreferredLanguage(request);
+    if (selected) {
+      logEvent(request, 'selection_set', {
+        correlationId: request.correlationId,
+        selectionIndex: index,
+        title: selected.title
+      });
+      return {
+        text: await translateOutgoing(t('selection.selected', { title: selected.title }), language)
+      };
+    }
+    return { text: await translateOutgoing(t('selection.invalid'), language) };
+  };
 
   return new TeamsCommandRouter({
     botMentionText,
@@ -204,11 +232,6 @@ export const createRouter = (deps: {
       {
         command: 'select',
         handler: async (request) => {
-          const store = selectionStore.get(request.conversationId);
-          if (!store || !store.items.length) {
-            const language = await resolvePreferredLanguage(request);
-            return { text: await translateOutgoing(t('selection.needAgenda'), language) };
-          }
           const rawText = request.text.trim();
           const selectionToken = rawText ? rawText.split(' ')[0] : '';
           const selectionFromValue =
@@ -216,17 +239,7 @@ export const createRouter = (deps: {
               ? String((request.value as { selection?: string }).selection ?? '')
               : '';
           const selection = selectionToken || selectionFromValue;
-          const index = Number(selection);
-          if (!Number.isFinite(index) || index < 1 || index > store.items.length) {
-            const language = await resolvePreferredLanguage(request);
-            return { text: await translateOutgoing(t('selection.invalid'), language) };
-          }
-          const selected = store.items[index - 1];
-          selectionStore.set(request.conversationId, { items: [selected] });
-          const language = await resolvePreferredLanguage(request);
-          return {
-            text: await translateOutgoing(t('selection.selected', { title: selected.title }), language)
-          };
+          return handleSelection(request, selection);
         }
       },
       {
@@ -266,6 +279,10 @@ export const createRouter = (deps: {
         hasNlu: Boolean(nlu),
         textLength: englishText.length
       });
+
+      if (intent === 'select') {
+        return handleSelection(request, nlu?.selectionNumber);
+      }
 
       if (intent === 'agenda') {
         return handleAgendaRequest({
