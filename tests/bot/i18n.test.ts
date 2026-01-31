@@ -30,3 +30,14 @@ describe('language auto-detection', () => {
     expect(lang).toBe('es');
   });
 });
+
+describe('language enforcement', () => {
+  it('falls back to source text when translated text looks wrong', async () => {
+    const client = () => ({
+      complete: async () => '{"translated":"\\u05d4\\u05e0\\u05d4 \\u05d4\\u05e4\\u05d2\\u05d9\\u05e9\\u05d5\\u05ea \\u05e9\\u05dc\\u05da"}'
+    });
+    const { translateOutgoing } = createI18n({}, client);
+    const translated = await translateOutgoing('Here are your meetings.', 'es');
+    expect(translated).toBe('Here are your meetings.');
+  });
+});

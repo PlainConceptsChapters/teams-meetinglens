@@ -16,7 +16,12 @@ export const getGraphTokenForRequest = async (request: ChannelRequest, graphAcce
   throw new Error('Missing Graph token for this user.');
 };
 
-export const buildGraphServicesForRequest = (request: ChannelRequest, graphBaseUrl: string, graphAccessToken?: string) => {
+export const buildGraphServicesForRequest = (
+  request: ChannelRequest,
+  graphBaseUrl: string,
+  graphAccessToken?: string,
+  options?: { maxTranscriptChecks?: number }
+) => {
   const graphClient = new GraphClient({
     baseUrl: graphBaseUrl,
     tokenProvider: () => getGraphTokenForRequest(request, graphAccessToken)
@@ -27,7 +32,8 @@ export const buildGraphServicesForRequest = (request: ChannelRequest, graphBaseU
   const agendaService = new AgendaService({
     calendarService,
     onlineMeetingService,
-    transcriptService
+    transcriptService,
+    maxTranscriptChecks: options?.maxTranscriptChecks
   });
   return { agendaService, onlineMeetingService, transcriptService };
 };
@@ -37,7 +43,12 @@ export const getMeetingTranscriptService = (request: ChannelRequest, graphBaseUr
   return { onlineMeetingService, transcriptService };
 };
 
-export const runGraphDebug = async (request: ChannelRequest, graphBaseUrl: string, graphAccessToken?: string) => {
+export const runGraphDebug = async (
+  request: ChannelRequest,
+  graphBaseUrl: string,
+  graphAccessToken?: string,
+  options?: { maxTranscriptChecks?: number; maxItems?: number }
+) => {
   const graphClient = new GraphClient({
     baseUrl: graphBaseUrl,
     tokenProvider: () => getGraphTokenForRequest(request, graphAccessToken)
@@ -56,12 +67,14 @@ export const runGraphDebug = async (request: ChannelRequest, graphBaseUrl: strin
     return { ok: false, error: message };
   }
   try {
-    const { agendaService } = buildGraphServicesForRequest(request, graphBaseUrl, graphAccessToken);
+    const { agendaService } = buildGraphServicesForRequest(request, graphBaseUrl, graphAccessToken, {
+      maxTranscriptChecks: options?.maxTranscriptChecks
+    });
     const agenda = await agendaService.searchAgenda({
       startDateTime: start.toISOString(),
       endDateTime: end.toISOString(),
       includeTranscriptAvailability: true,
-      top: 10
+      top: options?.maxItems ?? 10
     });
     logEvent(request, 'graph_call', { endpoint: '/me/calendarView', status: 'ok', count: agenda.items.length });
     const count = agenda.items.length;

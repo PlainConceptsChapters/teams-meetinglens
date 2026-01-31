@@ -72,6 +72,8 @@ Steps:
     - `BOT_MENTION_TEXT`: bot mention text to strip (e.g., `@meetinglens`).
     - `GRAPH_ACCESS_TOKEN`: delegated Graph access token for agenda search in local dev.
     - `AZURE_OPENAI_SUMMARY_DEPLOYMENT`: optional summary-specific deployment (faster/cheaper model).
+    - `AGENDA_MAX_ITEMS`: max meetings to consider per agenda request (default 25).
+    - `AGENDA_MAX_TRANSCRIPT_CHECKS`: max transcript availability checks per request (default 25).
     - Get a token with: `npm run auth:graph-token`
      - For Teams SSO, set `BOT_OAUTH_CONNECTION` to the OAuth connection name configured in Azure Bot.
 2. Configure a dev tunnel to expose `http://localhost:3978/api/messages`.

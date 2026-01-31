@@ -47,4 +47,19 @@ describe('TranslationService', () => {
     expect(translated).toBe('hello');
     expect(mock.calls).toBe(0);
   });
+
+  it('strips source text when translation echoes input', async () => {
+    const client = {
+      complete: async (messages: LlmMessage[]) => {
+        const user = messages[messages.length - 1]?.content ?? '';
+        if (user.includes('Target language: es')) {
+          return '{"translated":"hello\\n\\nhola"}';
+        }
+        return '{"language":"es"}';
+      }
+    };
+    const service = new TranslationService({ client });
+    const translated = await service.translate('hello', 'es');
+    expect(translated).toBe('hola');
+  });
 });

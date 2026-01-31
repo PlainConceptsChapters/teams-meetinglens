@@ -183,6 +183,26 @@ const mergePartialSummaries = (partials: SummaryResult[]): SummaryResult => {
   return { summary, keyPoints, actionItems, decisions, topics, templateData };
 };
 
+const buildSummaryRepairSystemPrompt = (language = 'en') => {
+  return `You repair meeting summary JSON.
+Return JSON only with keys: summary, keyPoints, actionItems, decisions, topics, templateData.
+Do not include markdown, code fences, or extra commentary.
+templateData must be an object with keys:
+- meetingHeader { meetingTitle, companiesParties, date, duration, linkReference }
+- actionItemsDetailed [ { action, owner, dueDate, notes } ]
+- meetingPurpose
+- keyPointsDetailed [ { title, explanation } ]
+- topicsDetailed [ { topic, issueDescription, observations, rootCause, impact } ]
+- pathForward { definitionOfSuccess, agreedNextAttempt, decisionPoint, checkpointDate }
+- nextSteps { partyA { name, steps }, partyB { name, steps } }
+If information is missing, use empty arrays or empty strings.
+Respond in ${language}.`;
+};
+
+const buildSummaryRepairUserPrompt = (raw: string) => {
+  return `Repair this into valid JSON that matches the schema:\n\n${raw}`;
+};
+
 export class SummarizationService {
   private readonly client: LlmClient;
   private readonly mergeClient?: LlmClient;
@@ -231,7 +251,18 @@ export class SummarizationService {
           { role: 'system', content: buildSummarySystemPrompt(options?.language) },
           { role: 'user', content: buildSummaryUserPrompt(chunk.text) }
         ]);
-        partials[index] = parseSummaryResult(response);
+        try {
+          partials[index] = parseSummaryResult(response);
+        } catch (error) {
+          if (!this.mergeClient) {
+            throw error;
+          }
+          const repaired = await this.mergeClient.complete([
+            { role: 'system', content: buildSummaryRepairSystemPrompt(options?.language) },
+            { role: 'user', content: buildSummaryRepairUserPrompt(response) }
+          ]);
+          partials[index] = parseSummaryResult(repaired);
+        }
       }
     };
 
@@ -243,7 +274,15 @@ export class SummarizationService {
         { role: 'system', content: buildSummaryMergeSystemPrompt(options?.language) },
         { role: 'user', content: buildSummaryMergeUserPrompt(partials) }
       ]);
-      merged = parseSummaryResult(mergeResponse);
+      try {
+        merged = parseSummaryResult(mergeResponse);
+      } catch (error) {
+        const repaired = await this.mergeClient.complete([
+          { role: 'system', content: buildSummaryRepairSystemPrompt(options?.language) },
+          { role: 'user', content: buildSummaryRepairUserPrompt(mergeResponse) }
+        ]);
+        merged = parseSummaryResult(repaired);
+      }
     }
     const redacted = redactSummary(merged);
     const template = renderSummaryTemplate(redacted, { language: options?.language, format: 'xml' });

@@ -261,8 +261,9 @@ export const handleAgendaRequest = async (params: {
   selectionStore: Map<string, { items: { index: number; title: string; details: string; agendaItem: AgendaItem }[]; selectedIndex?: number }>;
   buildGraphServicesForRequest: (request: ChannelRequest) => { agendaService: { searchAgenda: Function } };
   formatRangeLabel: (range: { start: Date; end: Date }) => string;
+  maxItems: number;
 }) : Promise<ChannelResponse> => {
-  const { request, englishText, nlu, preferred, t, translateOutgoing, buildAgendaCard, selectionStore, buildGraphServicesForRequest } = params;
+  const { request, englishText, nlu, preferred, t, translateOutgoing, buildAgendaCard, selectionStore, buildGraphServicesForRequest, maxItems } = params;
   const fallbackRange = parseAgendaRange(englishText);
   const nluRange = resolveDateRangeFromNlu(nlu);
   const range = nluRange ?? { start: fallbackRange.start, end: fallbackRange.end };
@@ -282,7 +283,7 @@ export const handleAgendaRequest = async (params: {
       ...formatDateRange(cappedRange),
       subjectContains: subjectQuery || undefined,
       includeTranscriptAvailability: true,
-      top: 10
+      top: maxItems
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : t('agenda.searchFailed');

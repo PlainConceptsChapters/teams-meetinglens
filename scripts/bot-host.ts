@@ -12,7 +12,16 @@ import { Attachment, Mention } from 'botframework-schema';
 import { AzureOpenAiClient } from '../src/llm/azureOpenAiClient.js';
 import { ChannelRequest } from '../src/teams/types.js';
 import { buildAgendaCard, buildSignInCard } from './bot/cards.js';
-import { botMentionText, graphAccessToken, graphBaseUrl, oauthConnection, requireEnv, systemTimeZone } from './bot/config.js';
+import {
+  agendaMaxItems,
+  agendaMaxTranscriptChecks,
+  botMentionText,
+  graphAccessToken,
+  graphBaseUrl,
+  oauthConnection,
+  requireEnv,
+  systemTimeZone
+} from './bot/config.js';
 import { loadTranslations, createI18n } from './bot/i18n.js';
 const isLogoutCommand = (text: string) => text.trim().toLowerCase().startsWith('/logout');
 import { logEvent } from './bot/logging.js';
@@ -62,10 +71,14 @@ const { t, translateOutgoing, translateToEnglish, resolvePreferredLanguage, buil
 );
 
 const buildGraphServices = (request: ChannelRequest) =>
-  buildGraphServicesForRequest(request, graphBaseUrl, graphAccessToken);
+  buildGraphServicesForRequest(request, graphBaseUrl, graphAccessToken, { maxTranscriptChecks: agendaMaxTranscriptChecks });
 const getTranscriptService = (request: ChannelRequest) =>
   getMeetingTranscriptService(request, graphBaseUrl, graphAccessToken);
-const runGraphDebugForRequest = (request: ChannelRequest) => runGraphDebug(request, graphBaseUrl, graphAccessToken);
+const runGraphDebugForRequest = (request: ChannelRequest) =>
+  runGraphDebug(request, graphBaseUrl, graphAccessToken, {
+    maxTranscriptChecks: agendaMaxTranscriptChecks,
+    maxItems: agendaMaxItems
+  });
 
 const router = createRouter({
   botMentionText,
@@ -84,7 +97,8 @@ const router = createRouter({
   getMeetingTranscriptService: getTranscriptService,
   runGraphDebug: runGraphDebugForRequest,
   buildLlmClient,
-  buildSummaryLlmClient
+  buildSummaryLlmClient,
+  agendaMaxItems
 });
 
 type ActivityAttachment = Attachment & { contentLength?: number };

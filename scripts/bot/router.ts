@@ -16,6 +16,7 @@ export const createRouter = (deps: {
   oauthConnection?: string;
   graphAccessToken?: string;
   systemTimeZone: string;
+  agendaMaxItems: number;
   t: (key: string, vars?: Record<string, string>) => string;
   translateOutgoing: (text: string, language: LanguageCode) => Promise<string>;
   translateToEnglish: (text: string, language: LanguageCode) => Promise<string>;
@@ -42,6 +43,7 @@ export const createRouter = (deps: {
     oauthConnection,
     graphAccessToken,
     systemTimeZone,
+    agendaMaxItems,
     t,
     translateOutgoing,
     translateToEnglish,
@@ -224,7 +226,7 @@ export const createRouter = (deps: {
             const preferred = await resolvePreferredLanguage(request);
             return { text: await translateOutgoing(t('languagePrompt'), preferred) };
           }
-          languageStore.set(getLanguageKey(request), language);
+          languageStore.set(getLanguageKey(request), { code: language, source: 'explicit' });
           const languageLabel = languageNames[language] ?? language;
           return { text: await translateOutgoing(t('languageSet', { languageName: languageLabel }), language) };
         }
@@ -240,6 +242,27 @@ export const createRouter = (deps: {
               : '';
           const selection = selectionToken || selectionFromValue;
           return handleSelection(request, selection);
+        }
+      },
+      {
+        command: 'agenda',
+        handler: async (request) => {
+          const { language } = extractLanguageToken(request.text ?? '');
+          const preferred = await resolvePreferredLanguage(request, language);
+          const englishText = await translateToEnglish(request.text ?? '', preferred);
+          return handleAgendaRequest({
+            request,
+            englishText,
+            nlu: await findNlu(englishText, new Date()),
+            preferred,
+            t,
+            translateOutgoing,
+            buildAgendaCard,
+            selectionStore,
+            buildGraphServicesForRequest,
+            formatRangeLabel,
+            maxItems: agendaMaxItems
+          });
         }
       },
       {
@@ -295,7 +318,8 @@ export const createRouter = (deps: {
           buildAgendaCard,
           selectionStore,
           buildGraphServicesForRequest,
-          formatRangeLabel
+          formatRangeLabel,
+          maxItems: agendaMaxItems
         });
       }
       if (intent === 'how') {

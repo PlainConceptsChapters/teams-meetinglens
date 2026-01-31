@@ -52,6 +52,63 @@ const hasNonAscii = (text?: string) => {
   return /[^\x00-\x7F]/.test(text);
 };
 
+const looksHebrew = (text: string) => /[\u0590-\u05FF]/.test(text);
+const looksChinese = (text: string) => /[\u4E00-\u9FFF]/.test(text);
+const looksJapanese = (text: string) => /[\u3040-\u30FF]/.test(text);
+const looksKorean = (text: string) => /[\u1100-\u11FF\uAC00-\uD7AF]/.test(text);
+
+const hasSpanishMarkers = (text: string) =>
+  /\b(el|la|los|las|de|del|que|y|en|por|para|con|una|un|no|sí)\b/i.test(text);
+
+const hasEnglishMarkers = (text: string) =>
+  /\b(the|and|or|but|please|meeting|summary|could|couldn|cant|cannot|can\\'t|try)\b/i.test(text);
+
+const isLikelyLanguage = (text: string, language: LanguageCode): boolean => {
+  const value = text.trim();
+  if (!value) {
+    return true;
+  }
+  if (language === 'es') {
+    const hasAccents = /[\u00e1\u00e9\u00ed\u00f3\u00fa\u00f1\u00fc\u00bf\u00a1]/i.test(value);
+    if (hasAccents) {
+      return true;
+    }
+    if (hasEnglishMarkers(value) && !hasSpanishMarkers(value)) {
+      return false;
+    }
+    if (hasSpanishMarkers(value)) {
+      return true;
+    }
+    return /^[a-z0-9\s.,!?"'%-]+$/i.test(value);
+  }
+  if (language === 'en') {
+    if (hasNonAscii(value)) {
+      return false;
+    }
+    return /^[a-z0-9\s.,!?"'%-]+$/i.test(value);
+  }
+  if (language === 'he') {
+    return looksHebrew(value);
+  }
+  if (language === 'zh') {
+    return looksChinese(value);
+  }
+  if (language === 'ja') {
+    return looksJapanese(value);
+  }
+  if (language === 'ko') {
+    return looksKorean(value);
+  }
+  return true;
+};
+
+const enforceLanguage = (text: string, language: LanguageCode, fallback: string): string => {
+  if (isLikelyLanguage(text, language)) {
+    return text;
+  }
+  return fallback;
+};
+
 export const createI18n = (translations: TranslationCatalog, buildLlmClient: () => LlmClient) => {
   let translationService: TranslationService | undefined;
   const autoLanguageAllowList = new Set<LanguageCode>(['en', 'es']);
@@ -97,7 +154,8 @@ export const createI18n = (translations: TranslationCatalog, buildLlmClient: () 
     }
     const protectedText = protectCommandTokens(text);
     const translated = await service.translate(protectedText.protectedText, language);
-    return restoreCommandTokens(translated, protectedText.tokens);
+    const restored = restoreCommandTokens(translated, protectedText.tokens);
+    return enforceLanguage(restored, language, text);
   };
 
   const translateToEnglish = async (text: string, language: LanguageCode): Promise<string> => {
@@ -110,7 +168,7 @@ export const createI18n = (translations: TranslationCatalog, buildLlmClient: () 
     }
     const protectedText = protectCommandTokens(text);
     const translated = await service.translate(protectedText.protectedText, 'en');
-    return restoreCommandTokens(translated, protectedText.tokens);
+    return enforceLanguage(restoreCommandTokens(translated, protectedText.tokens), 'en', text);
   };
 
   const resolvePreferredLanguage = async (
@@ -118,16 +176,17 @@ export const createI18n = (translations: TranslationCatalog, buildLlmClient: () 
     explicit?: LanguageCode
   ): Promise<LanguageCode> => {
     if (explicit) {
-      languageStore.set(getLanguageKey(request), explicit);
+      languageStore.set(getLanguageKey(request), { code: explicit, source: 'explicit' });
       return explicit;
     }
     const stored = languageStore.get(getLanguageKey(request));
     if (stored) {
-      return stored;
+      return stored.code;
     }
     const locale = normalizeLanguage(request.locale);
     if (locale) {
       if (autoLanguageAllowList.has(locale)) {
+        languageStore.set(getLanguageKey(request), { code: locale, source: 'auto' });
         return locale;
       }
       if (isLikelyEnglishText(request.text)) {
@@ -141,7 +200,7 @@ export const createI18n = (translations: TranslationCatalog, buildLlmClient: () 
         try {
           const detected = normalizeLanguage(await service.detectLanguage(request.text)) ?? 'en';
           const resolved = autoLanguageAllowList.has(detected) ? detected : 'en';
-          languageStore.set(getLanguageKey(request), resolved);
+          languageStore.set(getLanguageKey(request), { code: resolved, source: 'auto' });
           return resolved;
         } catch {
           return 'en';

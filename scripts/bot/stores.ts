@@ -2,7 +2,12 @@ import type { AgendaItem } from '../../src/agenda/types.js';
 import type { ChannelRequest } from '../../src/teams/types.js';
 import type { LanguageCode } from '../../src/teams/language.js';
 
-export const languageStore = new Map<string, LanguageCode>();
+export interface LanguagePreference {
+  code: LanguageCode;
+  source: 'explicit' | 'auto';
+}
+
+export const languageStore = new Map<string, LanguagePreference>();
 export interface SelectionItem {
   index: number;
   title: string;
