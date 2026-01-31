@@ -126,6 +126,38 @@ const textBlock = (
   ...(options ?? {})
 });
 
+const richLabelValue = (label: string, value: string, options?: { spacing?: string }) => ({
+  type: 'RichTextBlock',
+  ...(options ?? {}),
+  inlines: [
+    {
+      type: 'TextRun',
+      text: label,
+      weight: 'Bolder'
+    },
+    {
+      type: 'TextRun',
+      text: ` ${value}`
+    }
+  ]
+});
+
+const richLabelLines = (label: string, lines: string, options?: { spacing?: string }) => ({
+  type: 'RichTextBlock',
+  ...(options ?? {}),
+  inlines: [
+    {
+      type: 'TextRun',
+      text: `${label}\n`,
+      weight: 'Bolder'
+    },
+    {
+      type: 'TextRun',
+      text: lines
+    }
+  ]
+});
+
 export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { language?: SummaryCardLanguage }) => {
   const labels = getSummaryTemplateLabels(options?.language);
   const data = buildTemplateData(result);
@@ -158,26 +190,26 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
   const body = [
     textBlock(labels.summaryTitle, { weight: 'Bolder', size: 'Large' }),
     textBlock(labels.meetingHeader, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
-    textBlock(`**${labels.meetingTitle}** ${clampField(valueOrNotFound(data.meetingHeader.meetingTitle, notFound))}`),
-    textBlock(`**${labels.companiesParties}** ${clampField(valueOrNotFound(data.meetingHeader.companiesParties, notFound))}`),
-    textBlock(`**${labels.date}** ${clampField(valueOrNotFound(data.meetingHeader.date, notFound))}`),
-    textBlock(`**${labels.duration}** ${clampField(valueOrNotFound(data.meetingHeader.duration, notFound))}`),
-    textBlock(`**${labels.linkReference}** ${clampField(valueOrNotFound(data.meetingHeader.linkReference, notFound))}`),
+    richLabelValue(labels.meetingTitle, clampField(valueOrNotFound(data.meetingHeader.meetingTitle, notFound))),
+    richLabelValue(labels.companiesParties, clampField(valueOrNotFound(data.meetingHeader.companiesParties, notFound))),
+    richLabelValue(labels.date, clampField(valueOrNotFound(data.meetingHeader.date, notFound))),
+    richLabelValue(labels.duration, clampField(valueOrNotFound(data.meetingHeader.duration, notFound))),
+    richLabelValue(labels.linkReference, clampField(valueOrNotFound(data.meetingHeader.linkReference, notFound))),
     textBlock(labels.actionItems, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
     textBlock(labels.forEachAction, { isSubtle: true, spacing: 'Small' }),
     ...actionItems.flatMap((item) => [
-      textBlock(`**${labels.actionVerbObject}** ${clampField(valueOrNotProvided(item.action, notProvided))}`),
-      textBlock(`**${labels.owner}** ${clampField(valueOrNotProvided(item.owner, notProvided))}`),
-      textBlock(`**${labels.dueDate}** ${clampField(valueOrNotProvided(item.dueDate, notProvided))}`),
-      textBlock(`**${labels.notesContext}** ${clampField(valueOrNotProvided(item.notes, notProvided))}`)
+      richLabelValue(labels.actionVerbObject, clampField(valueOrNotProvided(item.action, notProvided))),
+      richLabelValue(labels.owner, clampField(valueOrNotProvided(item.owner, notProvided))),
+      richLabelValue(labels.dueDate, clampField(valueOrNotProvided(item.dueDate, notProvided))),
+      richLabelValue(labels.notesContext, clampField(valueOrNotProvided(item.notes, notProvided)))
     ]),
     textBlock(labels.meetingPurpose, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
-    textBlock(`**${labels.purposeOneSentence}** ${clampField(valueOrNotProvided(data.meetingPurpose, notProvided))}`),
+    richLabelValue(labels.purposeOneSentence, clampField(valueOrNotProvided(data.meetingPurpose, notProvided))),
     textBlock(labels.keyPoints, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
     textBlock(labels.shortListEachPoint, { isSubtle: true, spacing: 'Small' }),
     ...keyPoints.flatMap((point) => [
-      textBlock(`**${labels.pointTitle}** ${clampField(valueOrNotProvided(point.title, notProvided))}`),
-      textBlock(`**${labels.pointExplanation}** ${clampField(valueOrNotProvided(point.explanation, notProvided))}`)
+      richLabelValue(labels.pointTitle, clampField(valueOrNotProvided(point.title, notProvided))),
+      richLabelValue(labels.pointExplanation, clampField(valueOrNotProvided(point.explanation, notProvided)))
     ]),
     textBlock(labels.topicsDetailed, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
     ...topics.flatMap((topic) => {
@@ -187,22 +219,22 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
         () => notProvided
       ).slice(0, SUMMARY_LIMITS.observationsPerTopic);
       return [
-        textBlock(`**${labels.topic}** ${clampField(valueOrNotProvided(topic.topic, notProvided))}`),
-        textBlock(`**${labels.issueDescription}** ${clampField(valueOrNotProvided(topic.issueDescription, notProvided))}`),
-        textBlock(`**${labels.keyObservations}**\n${bulletsOrFallback(observationLines.map(clampField), notProvided)}`),
-        textBlock(`**${labels.rootCause}** ${clampField(valueOrNotProvided(topic.rootCause, notProvided))}`),
-        textBlock(`**${labels.impact}** ${clampField(valueOrNotProvided(topic.impact, notProvided))}`)
+        richLabelValue(labels.topic, clampField(valueOrNotProvided(topic.topic, notProvided))),
+        richLabelValue(labels.issueDescription, clampField(valueOrNotProvided(topic.issueDescription, notProvided))),
+        richLabelLines(labels.keyObservations, bulletsOrFallback(observationLines.map(clampField), notProvided)),
+        richLabelValue(labels.rootCause, clampField(valueOrNotProvided(topic.rootCause, notProvided))),
+        richLabelValue(labels.impact, clampField(valueOrNotProvided(topic.impact, notProvided)))
       ];
     }),
     textBlock(labels.pathForward, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
-    textBlock(`**${labels.definitionOfSuccess}** ${clampField(valueOrNotProvided(data.pathForward.definitionOfSuccess, notProvided))}`),
-    textBlock(`**${labels.agreedNextAttempt}** ${clampField(valueOrNotProvided(data.pathForward.agreedNextAttempt, notProvided))}`),
-    textBlock(`**${labels.decisionPoint}** ${clampField(valueOrNotProvided(data.pathForward.decisionPoint, notProvided))}`),
-    textBlock(`**${labels.checkpointDate}** ${clampField(valueOrNotProvided(data.pathForward.checkpointDate, notProvided))}`),
+    richLabelValue(labels.definitionOfSuccess, clampField(valueOrNotProvided(data.pathForward.definitionOfSuccess, notProvided))),
+    richLabelValue(labels.agreedNextAttempt, clampField(valueOrNotProvided(data.pathForward.agreedNextAttempt, notProvided))),
+    richLabelValue(labels.decisionPoint, clampField(valueOrNotProvided(data.pathForward.decisionPoint, notProvided))),
+    richLabelValue(labels.checkpointDate, clampField(valueOrNotProvided(data.pathForward.checkpointDate, notProvided))),
     textBlock(labels.nextSteps, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
-    textBlock(`**${labels.partyA}** ${partyAName}`, { spacing: 'Small' }),
+    richLabelValue(labels.partyA, partyAName, { spacing: 'Small' }),
     textBlock(stepsOrFallback(data.nextSteps.partyA.steps, notProvided, labels.step), { spacing: 'None' }),
-    textBlock(`**${labels.partyB}** ${partyBName}`, { spacing: 'Medium' }),
+    richLabelValue(labels.partyB, partyBName, { spacing: 'Medium' }),
     textBlock(stepsOrFallback(data.nextSteps.partyB.steps, notProvided, labels.step), { spacing: 'None' })
   ];
 
