@@ -160,9 +160,49 @@ const richLabelLines = (label: string, lines: string, options?: { spacing?: stri
 
 export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { language?: SummaryCardLanguage }) => {
   const labels = getSummaryTemplateLabels(options?.language);
+  const fallbackLabels = getSummaryTemplateLabels('en');
+  const labelOrFallback = (label: string, fallback: string) => (label?.trim() ? label : fallback);
+  const resolved = {
+    summaryTitle: labelOrFallback(labels.summaryTitle, fallbackLabels.summaryTitle),
+    meetingHeader: labelOrFallback(labels.meetingHeader, fallbackLabels.meetingHeader),
+    meetingTitle: labelOrFallback(labels.meetingTitle, fallbackLabels.meetingTitle),
+    companiesParties: labelOrFallback(labels.companiesParties, fallbackLabels.companiesParties),
+    date: labelOrFallback(labels.date, fallbackLabels.date),
+    duration: labelOrFallback(labels.duration, fallbackLabels.duration),
+    linkReference: labelOrFallback(labels.linkReference, fallbackLabels.linkReference),
+    actionItems: labelOrFallback(labels.actionItems, fallbackLabels.actionItems),
+    forEachAction: labelOrFallback(labels.forEachAction, fallbackLabels.forEachAction),
+    actionVerbObject: labelOrFallback(labels.actionVerbObject, fallbackLabels.actionVerbObject),
+    owner: labelOrFallback(labels.owner, fallbackLabels.owner),
+    dueDate: labelOrFallback(labels.dueDate, fallbackLabels.dueDate),
+    notesContext: labelOrFallback(labels.notesContext, fallbackLabels.notesContext),
+    meetingPurpose: labelOrFallback(labels.meetingPurpose, fallbackLabels.meetingPurpose),
+    purposeOneSentence: labelOrFallback(labels.purposeOneSentence, fallbackLabels.purposeOneSentence),
+    keyPoints: labelOrFallback(labels.keyPoints, fallbackLabels.keyPoints),
+    shortListEachPoint: labelOrFallback(labels.shortListEachPoint, fallbackLabels.shortListEachPoint),
+    pointTitle: labelOrFallback(labels.pointTitle, fallbackLabels.pointTitle),
+    pointExplanation: labelOrFallback(labels.pointExplanation, fallbackLabels.pointExplanation),
+    topicsDetailed: labelOrFallback(labels.topicsDetailed, fallbackLabels.topicsDetailed),
+    topic: labelOrFallback(labels.topic, fallbackLabels.topic),
+    issueDescription: labelOrFallback(labels.issueDescription, fallbackLabels.issueDescription),
+    keyObservations: labelOrFallback(labels.keyObservations, fallbackLabels.keyObservations),
+    rootCause: labelOrFallback(labels.rootCause, fallbackLabels.rootCause),
+    impact: labelOrFallback(labels.impact, fallbackLabels.impact),
+    pathForward: labelOrFallback(labels.pathForward, fallbackLabels.pathForward),
+    definitionOfSuccess: labelOrFallback(labels.definitionOfSuccess, fallbackLabels.definitionOfSuccess),
+    agreedNextAttempt: labelOrFallback(labels.agreedNextAttempt, fallbackLabels.agreedNextAttempt),
+    decisionPoint: labelOrFallback(labels.decisionPoint, fallbackLabels.decisionPoint),
+    checkpointDate: labelOrFallback(labels.checkpointDate, fallbackLabels.checkpointDate),
+    nextSteps: labelOrFallback(labels.nextSteps, fallbackLabels.nextSteps),
+    partyA: labelOrFallback(labels.partyA, fallbackLabels.partyA),
+    partyB: labelOrFallback(labels.partyB, fallbackLabels.partyB),
+    step: labelOrFallback(labels.step, fallbackLabels.step),
+    notProvided: labelOrFallback(labels.notProvided, fallbackLabels.notProvided),
+    notFound: labelOrFallback(labels.notFound, fallbackLabels.notFound)
+  };
   const data = buildTemplateData(result);
-  const notProvided = labels.notProvided;
-  const notFound = labels.notFound;
+  const notProvided = resolved.notProvided;
+  const notFound = resolved.notFound;
 
   const actionItems = ensureMinCount(
     data.actionItemsDetailed.length ? data.actionItemsDetailed : [{ action: '', owner: '', dueDate: '', notes: '' }],
@@ -188,30 +228,30 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
   const partyBName = clampField(valueOrNotProvided(data.nextSteps.partyB.name, notProvided));
 
   const body = [
-    textBlock(labels.summaryTitle, { weight: 'Bolder', size: 'Large' }),
-    textBlock(labels.meetingHeader, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
-    richLabelValue(labels.meetingTitle, clampField(valueOrNotFound(data.meetingHeader.meetingTitle, notFound))),
-    richLabelValue(labels.companiesParties, clampField(valueOrNotFound(data.meetingHeader.companiesParties, notFound))),
-    richLabelValue(labels.date, clampField(valueOrNotFound(data.meetingHeader.date, notFound))),
-    richLabelValue(labels.duration, clampField(valueOrNotFound(data.meetingHeader.duration, notFound))),
-    richLabelValue(labels.linkReference, clampField(valueOrNotFound(data.meetingHeader.linkReference, notFound))),
-    textBlock(labels.actionItems, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
-    textBlock(labels.forEachAction, { isSubtle: true, spacing: 'Small' }),
+    textBlock(resolved.summaryTitle, { weight: 'Bolder', size: 'Large' }),
+    textBlock(resolved.meetingHeader, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
+    richLabelValue(resolved.meetingTitle, clampField(valueOrNotFound(data.meetingHeader.meetingTitle, notFound))),
+    richLabelValue(resolved.companiesParties, clampField(valueOrNotFound(data.meetingHeader.companiesParties, notFound))),
+    richLabelValue(resolved.date, clampField(valueOrNotFound(data.meetingHeader.date, notFound))),
+    richLabelValue(resolved.duration, clampField(valueOrNotFound(data.meetingHeader.duration, notFound))),
+    richLabelValue(resolved.linkReference, clampField(valueOrNotFound(data.meetingHeader.linkReference, notFound))),
+    textBlock(resolved.actionItems, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
+    textBlock(resolved.forEachAction, { isSubtle: true, spacing: 'Small' }),
     ...actionItems.flatMap((item) => [
-      richLabelValue(labels.actionVerbObject, clampField(valueOrNotProvided(item.action, notProvided))),
-      richLabelValue(labels.owner, clampField(valueOrNotProvided(item.owner, notProvided))),
-      richLabelValue(labels.dueDate, clampField(valueOrNotProvided(item.dueDate, notProvided))),
-      richLabelValue(labels.notesContext, clampField(valueOrNotProvided(item.notes, notProvided)))
+      richLabelValue(resolved.actionVerbObject, clampField(valueOrNotProvided(item.action, notProvided))),
+      richLabelValue(resolved.owner, clampField(valueOrNotProvided(item.owner, notProvided))),
+      richLabelValue(resolved.dueDate, clampField(valueOrNotProvided(item.dueDate, notProvided))),
+      richLabelValue(resolved.notesContext, clampField(valueOrNotProvided(item.notes, notProvided)))
     ]),
-    textBlock(labels.meetingPurpose, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
-    richLabelValue(labels.purposeOneSentence, clampField(valueOrNotProvided(data.meetingPurpose, notProvided))),
-    textBlock(labels.keyPoints, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
-    textBlock(labels.shortListEachPoint, { isSubtle: true, spacing: 'Small' }),
+    textBlock(resolved.meetingPurpose, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
+    richLabelValue(resolved.purposeOneSentence, clampField(valueOrNotProvided(data.meetingPurpose, notProvided))),
+    textBlock(resolved.keyPoints, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
+    textBlock(resolved.shortListEachPoint, { isSubtle: true, spacing: 'Small' }),
     ...keyPoints.flatMap((point) => [
-      richLabelValue(labels.pointTitle, clampField(valueOrNotProvided(point.title, notProvided))),
-      richLabelValue(labels.pointExplanation, clampField(valueOrNotProvided(point.explanation, notProvided)))
+      richLabelValue(resolved.pointTitle, clampField(valueOrNotProvided(point.title, notProvided))),
+      richLabelValue(resolved.pointExplanation, clampField(valueOrNotProvided(point.explanation, notProvided)))
     ]),
-    textBlock(labels.topicsDetailed, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
+    textBlock(resolved.topicsDetailed, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
     ...topics.flatMap((topic) => {
       const observationLines = ensureMinCount(
         normalizeList(topic.observations).length ? normalizeList(topic.observations) : [notProvided],
@@ -219,23 +259,23 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
         () => notProvided
       ).slice(0, SUMMARY_LIMITS.observationsPerTopic);
       return [
-        richLabelValue(labels.topic, clampField(valueOrNotProvided(topic.topic, notProvided))),
-        richLabelValue(labels.issueDescription, clampField(valueOrNotProvided(topic.issueDescription, notProvided))),
-        richLabelLines(labels.keyObservations, bulletsOrFallback(observationLines.map(clampField), notProvided)),
-        richLabelValue(labels.rootCause, clampField(valueOrNotProvided(topic.rootCause, notProvided))),
-        richLabelValue(labels.impact, clampField(valueOrNotProvided(topic.impact, notProvided)))
+        richLabelValue(resolved.topic, clampField(valueOrNotProvided(topic.topic, notProvided))),
+        richLabelValue(resolved.issueDescription, clampField(valueOrNotProvided(topic.issueDescription, notProvided))),
+        richLabelLines(resolved.keyObservations, bulletsOrFallback(observationLines.map(clampField), notProvided)),
+        richLabelValue(resolved.rootCause, clampField(valueOrNotProvided(topic.rootCause, notProvided))),
+        richLabelValue(resolved.impact, clampField(valueOrNotProvided(topic.impact, notProvided)))
       ];
     }),
-    textBlock(labels.pathForward, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
-    richLabelValue(labels.definitionOfSuccess, clampField(valueOrNotProvided(data.pathForward.definitionOfSuccess, notProvided))),
-    richLabelValue(labels.agreedNextAttempt, clampField(valueOrNotProvided(data.pathForward.agreedNextAttempt, notProvided))),
-    richLabelValue(labels.decisionPoint, clampField(valueOrNotProvided(data.pathForward.decisionPoint, notProvided))),
-    richLabelValue(labels.checkpointDate, clampField(valueOrNotProvided(data.pathForward.checkpointDate, notProvided))),
-    textBlock(labels.nextSteps, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
-    richLabelValue(labels.partyA, partyAName, { spacing: 'Small' }),
-    textBlock(stepsOrFallback(data.nextSteps.partyA.steps, notProvided, labels.step), { spacing: 'None' }),
-    richLabelValue(labels.partyB, partyBName, { spacing: 'Medium' }),
-    textBlock(stepsOrFallback(data.nextSteps.partyB.steps, notProvided, labels.step), { spacing: 'None' })
+    textBlock(resolved.pathForward, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
+    richLabelValue(resolved.definitionOfSuccess, clampField(valueOrNotProvided(data.pathForward.definitionOfSuccess, notProvided))),
+    richLabelValue(resolved.agreedNextAttempt, clampField(valueOrNotProvided(data.pathForward.agreedNextAttempt, notProvided))),
+    richLabelValue(resolved.decisionPoint, clampField(valueOrNotProvided(data.pathForward.decisionPoint, notProvided))),
+    richLabelValue(resolved.checkpointDate, clampField(valueOrNotProvided(data.pathForward.checkpointDate, notProvided))),
+    textBlock(resolved.nextSteps, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
+    richLabelValue(resolved.partyA, partyAName, { spacing: 'Small' }),
+    textBlock(stepsOrFallback(data.nextSteps.partyA.steps, notProvided, resolved.step), { spacing: 'None' }),
+    richLabelValue(resolved.partyB, partyBName, { spacing: 'Medium' }),
+    textBlock(stepsOrFallback(data.nextSteps.partyB.steps, notProvided, resolved.step), { spacing: 'None' })
   ];
 
   return {
