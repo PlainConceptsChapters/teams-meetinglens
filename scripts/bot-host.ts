@@ -29,6 +29,7 @@ const isLogoutCommand = (text: string) => text.trim().toLowerCase().startsWith('
 import { logEvent } from './bot/logging.js';
 import { buildGraphServicesForRequest, getMeetingTranscriptService, runGraphDebug } from './bot/graph.js';
 import { createRouter } from './bot/router.js';
+import { createProgressController } from './bot/progress.js';
 
 const port = Number(process.env.BOT_PORT ?? process.env.PORT ?? 3978);
 const endpointPath = process.env.BOT_ENDPOINT_PATH ?? '/api/messages';
@@ -67,7 +68,7 @@ const buildSummaryLlmClient = () => {
 };
 
 const translations = await loadTranslations();
-const { t, translateOutgoing, translateToEnglish, resolvePreferredLanguage, buildHelpText } = createI18n(
+const { t, translateOutgoing, translateToEnglish, resolvePreferredLanguage, buildHelpText, getAutoLanguageNotice } = createI18n(
   translations,
   buildLlmClient
 );
@@ -230,35 +231,24 @@ class TeamsBot extends TeamsActivityHandler {
         return;
       }
 
-      let loadingActivityId: string | undefined;
-      let loadingTimer: NodeJS.Timeout | undefined;
       const trimmedIncoming = incomingText.trim().toLowerCase();
-      const shouldShowSummaryLoading =
-        trimmedIncoming.startsWith('/summary') && (graphToken || graphAccessToken);
-      const shouldShowAgendaLoading =
-        trimmedIncoming.startsWith('/agenda') && (graphToken || graphAccessToken);
-      if (shouldShowSummaryLoading || shouldShowAgendaLoading) {
-        const preferred = await resolvePreferredLanguage(request);
-        await context.sendActivity({ type: 'typing' });
-        const loadingText = shouldShowAgendaLoading ? t('agenda.loadingText') : t('summary.loadingText');
-        const loadingMore = shouldShowAgendaLoading ? t('agenda.loadingMore') : t('summary.loadingMore');
-        const loadingActivity = await context.sendActivity({
-          text: await translateOutgoing(loadingText, preferred)
-        });
-        loadingActivityId = loadingActivity?.id;
-        loadingTimer = setTimeout(async () => {
-          try {
-            await context.updateActivity({
-              id: loadingActivityId,
-              type: 'message',
-              conversation: activity.conversation,
-              text: await translateOutgoing(loadingMore, preferred)
-            });
-          } catch {
-            // Ignore update failures for interim progress.
-          }
-        }, 4000);
-      }
+      const progressLabelKey = trimmedIncoming.startsWith('/agenda')
+        ? 'progress.agenda'
+        : trimmedIncoming.startsWith('/summary')
+          ? 'progress.summary'
+          : trimmedIncoming.startsWith('/qa')
+            ? 'progress.qa'
+            : 'progress.generic';
+
+      const preferred = await resolvePreferredLanguage(request);
+      const progressLabel = `${t('progress.loading')} ${t(progressLabelKey)}`;
+      const progress = createProgressController({
+        context,
+        conversation: activity.conversation,
+        label: progressLabel,
+        doneLabel: t('progress.done'),
+        translate: async (text) => translateOutgoing(text, preferred)
+      });
 
       const response = await router.handle(request);
       const metadata = response.metadata?.adaptiveCard;
@@ -283,23 +273,12 @@ class TeamsBot extends TeamsActivityHandler {
         hasSignIn: Boolean(signIn)
       });
 
-      if (loadingTimer) {
-        clearTimeout(loadingTimer);
+      const notice = getAutoLanguageNotice(request, preferred);
+      if (notice) {
+        outgoing.text = `${outgoing.text}\n${await translateOutgoing(notice, preferred)}`;
       }
-      if (loadingActivityId) {
-        try {
-          await context.updateActivity({
-            id: loadingActivityId,
-            type: 'message',
-            conversation: activity.conversation,
-            ...outgoing
-          });
-        } catch {
-          await context.sendActivity(outgoing);
-        }
-      } else {
-        await context.sendActivity(outgoing);
-      }
+
+      await progress.finish(outgoing);
 
       if (signIn && followupText) {
         await context.sendActivity(followupText);

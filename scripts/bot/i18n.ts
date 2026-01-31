@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { TranslationService } from '../../src/llm/translationService.js';
 import type { LlmClient } from '../../src/llm/types.js';
-import { LanguageCode, normalizeLanguage } from '../../src/teams/language.js';
+import { LanguageCode, normalizeLanguage, languageNames } from '../../src/teams/language.js';
 import type { ChannelRequest } from '../../src/teams/types.js';
 import { getLanguageKey, languageStore } from './stores.js';
 
@@ -213,6 +213,20 @@ export const createI18n = (translations: TranslationCatalog, buildLlmClient: () 
     return 'en';
   };
 
+  const getAutoLanguageNotice = (request: ChannelRequest, language: LanguageCode): string | undefined => {
+    const stored = languageStore.get(getLanguageKey(request));
+    if (!stored || stored.source !== 'auto' || stored.notified) {
+      return undefined;
+    }
+    if (stored.code !== language) {
+      return undefined;
+    }
+    stored.notified = true;
+    languageStore.set(getLanguageKey(request), stored);
+    const languageName = languageNames[language] ?? language;
+    return t('language.autoNotice', { languageName });
+  };
+
   const buildHelpText = (): string => {
     return [
       t('help.title'),
@@ -243,6 +257,7 @@ export const createI18n = (translations: TranslationCatalog, buildLlmClient: () 
     translateOutgoing,
     translateToEnglish,
     resolvePreferredLanguage,
-    buildHelpText
+    buildHelpText,
+    getAutoLanguageNotice
   };
 };

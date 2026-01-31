@@ -5,6 +5,7 @@ import type { LanguageCode } from '../../src/teams/language.js';
 export interface LanguagePreference {
   code: LanguageCode;
   source: 'explicit' | 'auto';
+  notified?: boolean;
 }
 
 export const languageStore = new Map<string, LanguagePreference>();

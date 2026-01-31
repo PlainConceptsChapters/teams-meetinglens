@@ -40,6 +40,25 @@ export const createSummaryHandlers = (deps: {
     selectionTtlMs
   } = deps;
 
+  const buildSelectionPrefix = (request: ChannelRequest): string => {
+    const store = selectionStore.get(request.conversationId);
+    const selected = getSelectedItem(store, Date.now(), selectionTtlMs);
+    return selected ? `${t('selection.using', { title: selected.title })}\n` : '';
+  };
+
+  const buildQaResponse = async (
+    request: ChannelRequest,
+    preferred: LanguageCode,
+    answer: string
+  ): Promise<ChannelResponse> => {
+    const text = `${buildSelectionPrefix(request)}${answer}\n${t('qa.followupHint')}`;
+    return { text: await translateOutgoing(text, preferred) };
+  };
+
+  const buildQaError = async (preferred: LanguageCode): Promise<ChannelResponse> => {
+    return { text: await translateOutgoing(t('qa.failed'), preferred) };
+  };
+
   const buildSummaryResponse = async (
     request: ChannelRequest,
     preferred: LanguageCode,
@@ -52,12 +71,13 @@ export const createSummaryHandlers = (deps: {
       const summarizer = new SummarizationService({ client, mergeClient });
       const result = await summarizeWithLogging(request, transcript, summarizer, { language: 'en' }, correlationId);
       const card = buildSummaryAdaptiveCard(result, { language: 'en' });
+      const text = `${buildSelectionPrefix(request)}${t('summary.cardFallback')}\n${t('summary.followupHint')}`;
       return {
-        text: await translateOutgoing(t('summary.cardFallback'), preferred),
+        text: await translateOutgoing(text, preferred),
         metadata: { adaptiveCard: JSON.stringify(card) }
       };
     } catch {
-      return { text: await translateOutgoing(t('summary.failed'), preferred) };
+      return { text: await translateOutgoing(`${t('summary.failed')}\n${t('summary.retryHint')}`, preferred) };
     }
   };
 
@@ -248,8 +268,12 @@ export const createSummaryHandlers = (deps: {
         if (transcript?.raw) {
           const client = buildLlmClient();
           const qa = new QaService({ client });
-          const result = await answerWithLogging(request, englishQuestion, transcript, qa, { language: 'en' }, correlationId);
-          return { text: await translateOutgoing(result.answer, preferred) };
+          try {
+            const result = await answerWithLogging(request, englishQuestion, transcript, qa, { language: 'en' }, correlationId);
+            return buildQaResponse(request, preferred, result.answer);
+          } catch {
+            return buildQaError(preferred);
+          }
         }
       } catch {
         return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
@@ -262,8 +286,12 @@ export const createSummaryHandlers = (deps: {
       }
       const client = buildLlmClient();
       const qa = new QaService({ client });
-      const result = await answerWithLogging(request, englishQuestion, transcript, qa, { language: 'en' }, correlationId);
-      return { text: await translateOutgoing(result.answer, preferred) };
+      try {
+        const result = await answerWithLogging(request, englishQuestion, transcript, qa, { language: 'en' }, correlationId);
+        return buildQaResponse(request, preferred, result.answer);
+      } catch {
+        return buildQaError(preferred);
+      }
     }
     const selected = getSelectedItem(store, Date.now(), selectionTtlMs)?.agendaItem;
     if (!selected) {
@@ -284,8 +312,12 @@ export const createSummaryHandlers = (deps: {
     }
     const client = buildLlmClient();
     const qa = new QaService({ client });
-    const result = await answerWithLogging(request, englishQuestion, transcript, qa, { language: 'en' }, correlationId);
-    return { text: await translateOutgoing(result.answer, preferred) };
+    try {
+      const result = await answerWithLogging(request, englishQuestion, transcript, qa, { language: 'en' }, correlationId);
+      return buildQaResponse(request, preferred, result.answer);
+    } catch {
+      return buildQaError(preferred);
+    }
   };
 
   const handleQaIntent = async (
@@ -314,8 +346,12 @@ export const createSummaryHandlers = (deps: {
       if (transcriptFromContext?.raw) {
         const client = buildLlmClient();
         const qa = new QaService({ client });
-        const result = await answerWithLogging(request, question, transcriptFromContext, qa, { language: 'en' }, correlationId);
-        return { text: await translateOutgoing(result.answer, preferred) };
+        try {
+          const result = await answerWithLogging(request, question, transcriptFromContext, qa, { language: 'en' }, correlationId);
+          return buildQaResponse(request, preferred, result.answer);
+        } catch {
+          return buildQaError(preferred);
+        }
       }
     } catch {
       return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
@@ -343,8 +379,12 @@ export const createSummaryHandlers = (deps: {
       }
       const client = buildLlmClient();
       const qa = new QaService({ client });
-      const result = await answerWithLogging(request, question, transcript, qa, { language: 'en' }, correlationId);
-      return { text: await translateOutgoing(result.answer, preferred) };
+      try {
+        const result = await answerWithLogging(request, question, transcript, qa, { language: 'en' }, correlationId);
+        return buildQaResponse(request, preferred, result.answer);
+      } catch {
+        return buildQaError(preferred);
+      }
     }
 
     if (store?.items?.length && !store.selectedIndex) {
@@ -355,8 +395,12 @@ export const createSummaryHandlers = (deps: {
     if (transcript.raw) {
       const client = buildLlmClient();
       const qa = new QaService({ client });
-      const result = await answerWithLogging(request, question, transcript, qa, { language: 'en' }, correlationId);
-      return { text: await translateOutgoing(result.answer, preferred) };
+      try {
+        const result = await answerWithLogging(request, question, transcript, qa, { language: 'en' }, correlationId);
+        return buildQaResponse(request, preferred, result.answer);
+      } catch {
+        return buildQaError(preferred);
+      }
     }
 
     return { text: await translateOutgoing(t('meeting.notFound'), preferred) };

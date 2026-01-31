@@ -26,6 +26,7 @@
   "agenda": {
     "title": "Your upcoming meetings",
     "intro": "Here are your meetings.",
+    "tipSelect": "Tip: type the meeting number or click a button to select it.",
     "none": "No meetings found for that range ({range}).",
     "noneWithTranscript": "No meetings with transcripts found for that range ({range}).",
     "cannotAccess": "I couldn't access your agenda yet. {message}",
@@ -44,7 +45,8 @@
     "needSelection": "Please select a meeting from the last agenda list (click a button or type its number).",
     "expired": "Your previous selection expired. Please select a meeting again from the last agenda list.",
     "invalid": "Invalid selection. Choose one of the listed numbers.",
-    "selected": "Selected: {title}"
+    "selected": "Selected: {title}",
+    "using": "Using: {title}"
   },
   "transcript": {
     "notConfigured": "Transcript not configured.",
@@ -90,7 +92,24 @@
     "cardFallback": "Meeting summary",
     "loadingText": "Working on your summary...",
     "loadingMore": "Extracting more information...",
-    "failed": "I couldn't build the summary. Please try again."
+    "failed": "I couldn't build the summary. Please try again.",
+    "retryHint": "You can try /summary again or use /agenda to pick a different meeting.",
+    "followupHint": "Ask a question about this meeting or use /agenda to pick another."
+  },
+  "qa": {
+    "failed": "I couldn't answer that. Please try again.",
+    "followupHint": "Ask another question about this meeting or use /agenda to pick another."
+  },
+  "language": {
+    "autoNotice": "Responding in {languageName}. Use /language en to switch."
+  },
+  "progress": {
+    "loading": "Working",
+    "done": "Completed",
+    "agenda": "on your agenda",
+    "summary": "on your summary",
+    "qa": "on your answer",
+    "generic": "on it"
   },
   "summaryTemplate": {
     "summaryTitle": "Meeting Summary",

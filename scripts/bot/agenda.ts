@@ -336,7 +336,7 @@ export const handleAgendaRequest = async (params: {
     hasSelection: false
   });
   return {
-    text: await translateOutgoing(t('agenda.intro'), preferred),
+    text: `${await translateOutgoing(t('agenda.intro'), preferred)}\n${await translateOutgoing(t('agenda.tipSelect'), preferred)}`,
     metadata: {
       adaptiveCard: JSON.stringify(buildAgendaCard(await translateOutgoing(t('agenda.title'), preferred), localizedItems))
     }
