@@ -37,6 +37,7 @@ export const summarizeWithLogging = async (
     SUMMARY_LOGGING_OPTIONS.overlapTokens
   ).slice(0, SUMMARY_LOGGING_OPTIONS.maxChunks);
   logEvent(request, 'summary_request', {
+    component: 'llm',
     correlationId,
     transcriptLength: transcriptText.length,
     chunkCount: chunks.length,
@@ -46,6 +47,7 @@ export const summarizeWithLogging = async (
   try {
     const result = await summarizer.summarize(transcript, options);
     logEvent(request, 'summary_complete', {
+      component: 'llm',
       correlationId,
       latencyMs: Date.now() - started,
       chunkCount: chunks.length
@@ -53,6 +55,8 @@ export const summarizeWithLogging = async (
     return result;
   } catch (error) {
     logEvent(request, 'summary_error', {
+      component: 'llm',
+      level: 'error',
       correlationId,
       latencyMs: Date.now() - started,
       errorType: error instanceof Error ? error.name : 'UnknownError',
@@ -71,6 +75,7 @@ export const answerWithLogging = async (
   correlationId: string
 ) => {
   logEvent(request, 'qa_request', {
+    component: 'llm',
     correlationId,
     questionLength: question.length,
     language: options.language
@@ -79,12 +84,15 @@ export const answerWithLogging = async (
   try {
     const result = await qa.answerQuestion(question, transcript, options);
     logEvent(request, 'qa_complete', {
+      component: 'llm',
       correlationId,
       latencyMs: Date.now() - started
     });
     return result;
   } catch (error) {
     logEvent(request, 'qa_error', {
+      component: 'llm',
+      level: 'error',
       correlationId,
       latencyMs: Date.now() - started,
       errorType: error instanceof Error ? error.name : 'UnknownError',

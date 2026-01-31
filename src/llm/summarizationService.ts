@@ -183,6 +183,39 @@ const mergePartialSummaries = (partials: SummaryResult[]): SummaryResult => {
   return { summary, keyPoints, actionItems, decisions, topics, templateData };
 };
 
+const createEmptyTemplateData = (): SummaryTemplateData => ({
+  meetingHeader: {
+    meetingTitle: '',
+    companiesParties: '',
+    date: '',
+    duration: '',
+    linkReference: ''
+  },
+  actionItemsDetailed: [],
+  meetingPurpose: '',
+  keyPointsDetailed: [],
+  topicsDetailed: [],
+  pathForward: {
+    definitionOfSuccess: '',
+    agreedNextAttempt: '',
+    decisionPoint: '',
+    checkpointDate: ''
+  },
+  nextSteps: {
+    partyA: { name: '', steps: [] },
+    partyB: { name: '', steps: [] }
+  }
+});
+
+const createEmptySummary = (summary = ''): SummaryResult => ({
+  summary,
+  keyPoints: [],
+  actionItems: [],
+  decisions: [],
+  topics: [],
+  templateData: createEmptyTemplateData()
+});
+
 const buildSummaryRepairSystemPrompt = (language = 'en') => {
   return `You repair meeting summary JSON.
 Return JSON only with keys: summary, keyPoints, actionItems, decisions, topics, templateData.
@@ -201,6 +234,13 @@ Respond in ${language}.`;
 
 const buildSummaryRepairUserPrompt = (raw: string) => {
   return `Repair this into valid JSON that matches the schema:\n\n${raw}`;
+};
+
+const buildSummaryFallbackSystemPrompt = (language = 'en') => {
+  return `Provide a concise meeting summary (2-3 sentences).
+Do not include markdown or lists.
+Avoid personal data unless it is required for clarity.
+Respond in ${language}.`;
 };
 
 export class SummarizationService {
@@ -254,42 +294,69 @@ export class SummarizationService {
         try {
           partials[index] = parseSummaryResult(response);
         } catch (error) {
-          if (!this.mergeClient) {
-            throw error;
+          if (this.mergeClient) {
+            try {
+              const repaired = await this.mergeClient.complete([
+                { role: 'system', content: buildSummaryRepairSystemPrompt(options?.language) },
+                { role: 'user', content: buildSummaryRepairUserPrompt(response) }
+              ]);
+              partials[index] = parseSummaryResult(repaired);
+              continue;
+            } catch {
+              // fall through to empty summary
+            }
           }
-          const repaired = await this.mergeClient.complete([
-            { role: 'system', content: buildSummaryRepairSystemPrompt(options?.language) },
-            { role: 'user', content: buildSummaryRepairUserPrompt(response) }
-          ]);
-          partials[index] = parseSummaryResult(repaired);
+          partials[index] = createEmptySummary();
         }
       }
     };
 
-    await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
+    try {
+      await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
 
-    let merged = partials.length === 1 ? partials[0] : mergePartialSummaries(partials);
-    if (partials.length > 1 && this.mergeClient) {
-      const mergeResponse = await this.mergeClient.complete([
-        { role: 'system', content: buildSummaryMergeSystemPrompt(options?.language) },
-        { role: 'user', content: buildSummaryMergeUserPrompt(partials) }
-      ]);
-      try {
-        merged = parseSummaryResult(mergeResponse);
-      } catch (error) {
-        const repaired = await this.mergeClient.complete([
-          { role: 'system', content: buildSummaryRepairSystemPrompt(options?.language) },
-          { role: 'user', content: buildSummaryRepairUserPrompt(mergeResponse) }
+      let merged = partials.length === 1 ? partials[0] : mergePartialSummaries(partials);
+      if (partials.length > 1 && this.mergeClient) {
+        const mergeResponse = await this.mergeClient.complete([
+          { role: 'system', content: buildSummaryMergeSystemPrompt(options?.language) },
+          { role: 'user', content: buildSummaryMergeUserPrompt(partials) }
         ]);
-        merged = parseSummaryResult(repaired);
+        try {
+          merged = parseSummaryResult(mergeResponse);
+        } catch (error) {
+          try {
+            const repaired = await this.mergeClient.complete([
+              { role: 'system', content: buildSummaryRepairSystemPrompt(options?.language) },
+              { role: 'user', content: buildSummaryRepairUserPrompt(mergeResponse) }
+            ]);
+            merged = parseSummaryResult(repaired);
+          } catch {
+            merged = mergePartialSummaries(partials);
+          }
+        }
       }
-    }
-    const redacted = redactSummary(merged);
-    const template = renderSummaryTemplate(redacted, { language: options?.language, format: 'xml' });
-    if (!template.trim()) {
-      throw new OutputValidationError('Summary output is empty after rendering.');
-    }
+      const redacted = redactSummary(merged);
+      const template = renderSummaryTemplate(redacted, { language: options?.language, format: 'xml' });
+      if (!template.trim()) {
+        throw new OutputValidationError('Summary output is empty after rendering.');
+      }
 
-    return { ...redacted, summary: template, template, templateFormat: 'xml' };
+      return { ...redacted, summary: template, template, templateFormat: 'xml' };
+    } catch (error) {
+      if (this.mergeClient) {
+        const fallbackText = await this.mergeClient.complete([
+          { role: 'system', content: buildSummaryFallbackSystemPrompt(options?.language) },
+          { role: 'user', content: transcriptText }
+        ]);
+        const fallback = createEmptySummary(fallbackText.trim());
+        fallback.templateData = {
+          ...createEmptyTemplateData(),
+          meetingPurpose: fallbackText.trim()
+        };
+        const redacted = redactSummary(fallback);
+        const template = renderSummaryTemplate(redacted, { language: options?.language, format: 'xml' });
+        return { ...redacted, summary: template, template, templateFormat: 'xml' };
+      }
+      throw error;
+    }
   }
 }

@@ -258,7 +258,7 @@ export const handleAgendaRequest = async (params: {
   t: (key: string, vars?: Record<string, string>) => string;
   translateOutgoing: (text: string, language: LanguageCode) => Promise<string>;
   buildAgendaCard: (title: string, items: { index: number; title: string; details: string }[]) => unknown;
-  selectionStore: Map<string, { items: { index: number; title: string; details: string; agendaItem: AgendaItem }[]; selectedIndex?: number }>;
+  selectionStore: Map<string, { items: { index: number; title: string; details: string; agendaItem: AgendaItem }[]; selectedIndex?: number; selectedAt?: number }>;
   buildGraphServicesForRequest: (request: ChannelRequest) => { agendaService: { searchAgenda: Function } };
   formatRangeLabel: (range: { start: Date; end: Date }) => string;
   maxItems: number;
@@ -294,6 +294,7 @@ export const handleAgendaRequest = async (params: {
   const items = agenda.items as AgendaItem[];
   if (isLogEnabled(request)) {
     logEvent(request, 'agenda_result', {
+      component: 'agenda',
       rangeStart: cappedRange.start.toISOString(),
       rangeEnd: cappedRange.end.toISOString(),
       subjectQuery,
@@ -330,6 +331,7 @@ export const handleAgendaRequest = async (params: {
   );
   selectionStore.set(request.conversationId, { items: localizedItems, selectedIndex: undefined });
   logEvent(request, 'selection_listed', {
+    component: 'agenda',
     count: localizedItems.length,
     hasSelection: false
   });

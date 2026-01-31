@@ -79,7 +79,10 @@ export class QaService {
     }
 
     const cues = content.cues.length ? content.cues : [{ start: '', end: '', text: content.raw }];
-    const selected = selectRelevantCues(cues, question, this.maxCues);
+    let selected = selectRelevantCues(cues, question, this.maxCues);
+    if (!selected.length) {
+      selected = cues.slice(0, Math.min(this.maxCues, cues.length));
+    }
     if (!selected.length) {
       throw new NotFoundError('No relevant transcript context found.');
     }

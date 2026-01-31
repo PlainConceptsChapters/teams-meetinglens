@@ -55,6 +55,8 @@ KEY_VAULT_URI=
 LOG_LEVEL=
 AGENDA_MAX_ITEMS=
 AGENDA_MAX_TRANSCRIPT_CHECKS=
+CALENDAR_MAX_PAGES=
+SELECTION_TTL_MINUTES=
 ```
 
 ## Non-goals (for now)
@@ -170,6 +172,8 @@ Azure OpenAI variables (for summarization/Q&A):
 Agenda tuning variables:
 - `AGENDA_MAX_ITEMS` (max meetings to consider per agenda request)
 - `AGENDA_MAX_TRANSCRIPT_CHECKS` (max transcript availability checks per request)
+- `CALENDAR_MAX_PAGES` (Graph calendar pagination pages)
+- `SELECTION_TTL_MINUTES` (how long a meeting selection stays active)
 
 
 Testing scope reminder:

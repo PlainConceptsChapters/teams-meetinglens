@@ -58,10 +58,10 @@ const looksJapanese = (text: string) => /[\u3040-\u30FF]/.test(text);
 const looksKorean = (text: string) => /[\u1100-\u11FF\uAC00-\uD7AF]/.test(text);
 
 const hasSpanishMarkers = (text: string) =>
-  /\b(el|la|los|las|de|del|que|y|en|por|para|con|una|un|no|sí)\b/i.test(text);
+  /\b(el|la|los|las|de|del|que|y|en|por|para|con|una|un|no|s\u00ed)\b/i.test(text);
 
 const hasEnglishMarkers = (text: string) =>
-  /\b(the|and|or|but|please|meeting|summary|could|couldn|cant|cannot|can\\'t|try)\b/i.test(text);
+  /\b(the|and|or|but|please|meeting|summary|could|couldn|cant|cannot|can't|try)\b/i.test(text);
 
 const isLikelyLanguage = (text: string, language: LanguageCode): boolean => {
   const value = text.trim();

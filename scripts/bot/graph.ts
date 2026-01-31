@@ -20,13 +20,13 @@ export const buildGraphServicesForRequest = (
   request: ChannelRequest,
   graphBaseUrl: string,
   graphAccessToken?: string,
-  options?: { maxTranscriptChecks?: number }
+  options?: { maxTranscriptChecks?: number; maxPages?: number }
 ) => {
   const graphClient = new GraphClient({
     baseUrl: graphBaseUrl,
     tokenProvider: () => getGraphTokenForRequest(request, graphAccessToken)
   });
-  const calendarService = new CalendarService({ graphClient });
+  const calendarService = new CalendarService({ graphClient, maxPages: options?.maxPages });
   const onlineMeetingService = new OnlineMeetingService({ graphClient });
   const transcriptService = new TranscriptService({ graphClient });
   const agendaService = new AgendaService({
@@ -47,7 +47,7 @@ export const runGraphDebug = async (
   request: ChannelRequest,
   graphBaseUrl: string,
   graphAccessToken?: string,
-  options?: { maxTranscriptChecks?: number; maxItems?: number }
+  options?: { maxTranscriptChecks?: number; maxItems?: number; maxPages?: number }
 ) => {
   const graphClient = new GraphClient({
     baseUrl: graphBaseUrl,
@@ -63,12 +63,13 @@ export const runGraphDebug = async (
     logEvent(request, 'graph_call', { endpoint: '/me', status: 'ok' });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'unknown error';
-    logEvent(request, 'graph_call', { endpoint: '/me', status: 'error', message });
+    logEvent(request, 'graph_call', { component: 'graph', level: 'error', endpoint: '/me', status: 'error', message });
     return { ok: false, error: message };
   }
   try {
     const { agendaService } = buildGraphServicesForRequest(request, graphBaseUrl, graphAccessToken, {
-      maxTranscriptChecks: options?.maxTranscriptChecks
+      maxTranscriptChecks: options?.maxTranscriptChecks,
+      maxPages: options?.maxPages
     });
     const agenda = await agendaService.searchAgenda({
       startDateTime: start.toISOString(),
@@ -76,14 +77,25 @@ export const runGraphDebug = async (
       includeTranscriptAvailability: true,
       top: options?.maxItems ?? 10
     });
-    logEvent(request, 'graph_call', { endpoint: '/me/calendarView', status: 'ok', count: agenda.items.length });
+    logEvent(request, 'graph_call', {
+      component: 'graph',
+      endpoint: '/me/calendarView',
+      status: 'ok',
+      count: agenda.items.length
+    });
     const count = agenda.items.length;
     const withJoinUrl = agenda.items.filter((item) => Boolean(item.joinUrl)).length;
     const withTranscript = agenda.items.filter((item) => item.transcriptAvailable).length;
     return { ok: true, count, start, end, withJoinUrl, withTranscript };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'unknown error';
-    logEvent(request, 'graph_call', { endpoint: '/me/calendarView', status: 'error', message });
+    logEvent(request, 'graph_call', {
+      component: 'graph',
+      level: 'error',
+      endpoint: '/me/calendarView',
+      status: 'error',
+      message
+    });
     return { ok: false, error: message };
   }
 };

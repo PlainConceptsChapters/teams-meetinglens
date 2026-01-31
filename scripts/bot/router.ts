@@ -7,7 +7,7 @@ import type { NluResult } from '../../src/teams/nluService.js';
 import type { LlmClient } from '../../src/llm/types.js';
 import { BUILD_VERSION } from '../../src/version.js';
 import { handleAgendaRequest, formatRangeLabel } from './agenda.js';
-import { selectionStore, languageStore, getLanguageKey, getSelectedItem } from './stores.js';
+import { selectionStore, languageStore, getLanguageKey, getSelectedItem, isSelectionExpired } from './stores.js';
 import { createSummaryHandlers } from './summaryHandlers.js';
 import { isLogEnabled, logEvent, setLogEnabled } from './logging.js';
 
@@ -17,6 +17,7 @@ export const createRouter = (deps: {
   graphAccessToken?: string;
   systemTimeZone: string;
   agendaMaxItems: number;
+  selectionTtlMs: number;
   t: (key: string, vars?: Record<string, string>) => string;
   translateOutgoing: (text: string, language: LanguageCode) => Promise<string>;
   translateToEnglish: (text: string, language: LanguageCode) => Promise<string>;
@@ -44,6 +45,7 @@ export const createRouter = (deps: {
     graphAccessToken,
     systemTimeZone,
     agendaMaxItems,
+    selectionTtlMs,
     t,
     translateOutgoing,
     translateToEnglish,
@@ -96,7 +98,8 @@ export const createRouter = (deps: {
     getMeetingTranscriptService,
     buildGraphServicesForRequest,
     translateOutgoing,
-    t
+    t,
+    selectionTtlMs
   });
 
   const handleSelection = async (request: ChannelRequest, selectionValue?: string | number): Promise<ChannelResponse> => {
@@ -111,11 +114,13 @@ export const createRouter = (deps: {
       return { text: await translateOutgoing(t('selection.invalid'), language) };
     }
     store.selectedIndex = index;
+    store.selectedAt = Date.now();
     selectionStore.set(request.conversationId, store);
-    const selected = getSelectedItem(store);
+    const selected = getSelectedItem(store, Date.now(), selectionTtlMs);
     const language = await resolvePreferredLanguage(request);
     if (selected) {
       logEvent(request, 'selection_set', {
+        component: 'router',
         correlationId: request.correlationId,
         selectionIndex: index,
         title: selected.title
@@ -297,6 +302,7 @@ export const createRouter = (deps: {
       const nlu = await findNlu(englishText, new Date());
       const intent = nlu?.intent ?? 'unknown';
       logEvent(request, 'intent_resolved', {
+        component: 'router',
         correlationId: request.correlationId,
         intent,
         hasNlu: Boolean(nlu),
@@ -338,10 +344,28 @@ export const createRouter = (deps: {
       }
 
       if (intent === 'summary') {
+        const store = selectionStore.get(request.conversationId);
+        if (isSelectionExpired(store, Date.now(), selectionTtlMs)) {
+          if (store) {
+            store.selectedIndex = undefined;
+            store.selectedAt = undefined;
+            selectionStore.set(request.conversationId, store);
+          }
+          return { text: await translateOutgoing(t('selection.expired'), preferred) };
+        }
         return summaryHandlers.handleSummaryIntent(request, preferred, englishText, nlu);
       }
 
       if (intent === 'qa') {
+        const store = selectionStore.get(request.conversationId);
+        if (isSelectionExpired(store, Date.now(), selectionTtlMs)) {
+          if (store) {
+            store.selectedIndex = undefined;
+            store.selectedAt = undefined;
+            selectionStore.set(request.conversationId, store);
+          }
+          return { text: await translateOutgoing(t('selection.expired'), preferred) };
+        }
         return summaryHandlers.handleQaIntent(request, preferred, englishText, nlu);
       }
 

@@ -26,7 +26,9 @@ const redactText = (value: string): string => {
     .replace(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi, '[REDACTED_EMAIL]')
     .replace(/https?:\/\/\S+/gi, '[REDACTED_URL]')
     .replace(/\+?\d[\d\s().-]{7,}\d/g, '[REDACTED_PHONE]')
-    .replace(/\b\d{6,}\b/g, '[REDACTED_ID]');
+    .replace(/\b\d{6,}\b/g, '[REDACTED_ID]')
+    .replace(/Bearer\s+[A-Za-z0-9\-_.=]+/gi, 'Bearer [REDACTED_TOKEN]')
+    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, '[REDACTED_TOKEN]');
 };
 
 const truncateText = (value: string, maxLength = 200): string => {
@@ -64,11 +66,17 @@ export const logEvent = (request: ChannelRequest, event: string, payload: Record
   }
   const base = {
     timestamp: new Date().toISOString(),
+    level: 'info',
+    message: event,
+    operation: event,
+    component: 'bot',
     event,
     conversationId: hashValue(request.conversationId),
     userId: hashValue(request.fromUserId),
     tenantId: hashValue(request.tenantId),
-    messageId: hashValue(request.messageId)
+    messageId: hashValue(request.messageId),
+    meetingId: hashValue(request.meetingId),
+    correlationId: request.correlationId ?? undefined
   };
   const sanitized = sanitizePayload(payload);
   console.log(JSON.stringify({ ...base, ...(sanitized as Record<string, unknown>) }));

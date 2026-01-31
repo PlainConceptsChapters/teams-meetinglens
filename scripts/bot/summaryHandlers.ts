@@ -8,7 +8,7 @@ import type { ChannelRequest, ChannelResponse } from '../../src/teams/types.js';
 import type { LanguageCode } from '../../src/teams/language.js';
 import type { LlmClient } from '../../src/llm/types.js';
 import type { TranscriptContent } from '../../src/types/transcript.js';
-import { getSelectedItem, selectionStore } from './stores.js';
+import { getSelectedItem, isSelectionExpired, selectionStore } from './stores.js';
 import { answerWithLogging, summarizeWithLogging } from './llm.js';
 import { findMeetingFromNlu, findMostRecentMeetingWithTranscript, getTranscriptFromMeetingContext } from './meeting.js';
 import type { NluResult } from '../../src/teams/nluService.js';
@@ -25,6 +25,7 @@ export const createSummaryHandlers = (deps: {
   buildGraphServicesForRequest: (request: ChannelRequest) => { agendaService: { searchAgenda: Function } };
   translateOutgoing: (text: string, language: LanguageCode) => Promise<string>;
   t: (key: string, vars?: Record<string, string>) => string;
+  selectionTtlMs: number;
 }) => {
   const {
     graphAccessToken,
@@ -35,7 +36,8 @@ export const createSummaryHandlers = (deps: {
     getMeetingTranscriptService,
     buildGraphServicesForRequest,
     translateOutgoing,
-    t
+    t,
+    selectionTtlMs
   } = deps;
 
   const buildSummaryResponse = async (
@@ -75,9 +77,11 @@ export const createSummaryHandlers = (deps: {
           agendaItem: meeting
         }
       ],
-      selectedIndex: 1
+      selectedIndex: 1,
+      selectedAt: Date.now()
     });
     logEvent(request, 'selection_set', {
+      component: 'summary',
       correlationId: request.correlationId,
       selectionIndex: 1,
       title
@@ -112,10 +116,18 @@ export const createSummaryHandlers = (deps: {
       return buildSignInResponse(request, preferred);
     }
     const store = selectionStore.get(request.conversationId);
+    if (isSelectionExpired(store, Date.now(), selectionTtlMs)) {
+      if (store) {
+        store.selectedIndex = undefined;
+        store.selectedAt = undefined;
+        selectionStore.set(request.conversationId, store);
+      }
+      return { text: await translateOutgoing(t('selection.expired'), preferred) };
+    }
     if (store && !store.items.length) {
       selectionStore.delete(request.conversationId);
     }
-    const selected = getSelectedItem(store)?.agendaItem;
+    const selected = getSelectedItem(store, Date.now(), selectionTtlMs)?.agendaItem;
     if (!store || !store.items.length) {
       try {
         const transcript = await getTranscriptFromMeetingContext(request, getMeetingTranscriptService);
@@ -163,14 +175,22 @@ export const createSummaryHandlers = (deps: {
     if (!request.graphToken && !graphAccessToken) {
       return buildSignInResponse(request, preferred);
     }
+    const store = selectionStore.get(request.conversationId);
+    if (isSelectionExpired(store, Date.now(), selectionTtlMs)) {
+      if (store) {
+        store.selectedIndex = undefined;
+        store.selectedAt = undefined;
+        selectionStore.set(request.conversationId, store);
+      }
+      return { text: await translateOutgoing(t('selection.expired'), preferred) };
+    }
     if (nlu?.meetingRecency === 'last') {
       const response = await summarizeMostRecentMeeting(request, preferred, correlationId);
       if (response) {
         return response;
       }
     }
-    const store = selectionStore.get(request.conversationId);
-    const selected = getSelectedItem(store)?.agendaItem;
+    const selected = getSelectedItem(store, Date.now(), selectionTtlMs)?.agendaItem;
     try {
       const transcriptFromContext = await getTranscriptFromMeetingContext(request, getMeetingTranscriptService);
       if (transcriptFromContext?.raw) {
@@ -214,6 +234,14 @@ export const createSummaryHandlers = (deps: {
       return buildSignInResponse(request, preferred);
     }
     const store = selectionStore.get(request.conversationId);
+    if (isSelectionExpired(store, Date.now(), selectionTtlMs)) {
+      if (store) {
+        store.selectedIndex = undefined;
+        store.selectedAt = undefined;
+        selectionStore.set(request.conversationId, store);
+      }
+      return { text: await translateOutgoing(t('selection.expired'), preferred) };
+    }
     if (!store || !store.items.length) {
       try {
         const transcript = await getTranscriptFromMeetingContext(request, getMeetingTranscriptService);
@@ -237,7 +265,7 @@ export const createSummaryHandlers = (deps: {
       const result = await answerWithLogging(request, englishQuestion, transcript, qa, { language: 'en' }, correlationId);
       return { text: await translateOutgoing(result.answer, preferred) };
     }
-    const selected = getSelectedItem(store)?.agendaItem;
+    const selected = getSelectedItem(store, Date.now(), selectionTtlMs)?.agendaItem;
     if (!selected) {
       return { text: await translateOutgoing(t('selection.needSelection'), preferred) };
     }
@@ -272,7 +300,15 @@ export const createSummaryHandlers = (deps: {
     }
     const question = nlu?.question ?? englishText;
     const store = selectionStore.get(request.conversationId);
-    const selected = getSelectedItem(store)?.agendaItem;
+    if (isSelectionExpired(store, Date.now(), selectionTtlMs)) {
+      if (store) {
+        store.selectedIndex = undefined;
+        store.selectedAt = undefined;
+        selectionStore.set(request.conversationId, store);
+      }
+      return { text: await translateOutgoing(t('selection.expired'), preferred) };
+    }
+    const selected = getSelectedItem(store, Date.now(), selectionTtlMs)?.agendaItem;
     try {
       const transcriptFromContext = await getTranscriptFromMeetingContext(request, getMeetingTranscriptService);
       if (transcriptFromContext?.raw) {

@@ -51,6 +51,7 @@ const requiredKeys = [
   'agenda.unknownTime',
   'selection.needAgenda',
   'selection.needSelection',
+  'selection.expired',
   'selection.invalid',
   'selection.selected',
   'transcript.notConfigured',

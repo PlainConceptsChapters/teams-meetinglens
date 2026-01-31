@@ -18,12 +18,27 @@ export interface SelectionItem {
 export interface SelectionState {
   items: SelectionItem[];
   selectedIndex?: number;
+  selectedAt?: number;
 }
 
 export const selectionStore = new Map<string, SelectionState>();
 
-export const getSelectedItem = (state?: SelectionState): SelectionItem | undefined => {
+export const isSelectionExpired = (state: SelectionState | undefined, now: number, ttlMs: number): boolean => {
+  if (!state?.selectedAt) {
+    return false;
+  }
+  return now - state.selectedAt > ttlMs;
+};
+
+export const getSelectedItem = (
+  state: SelectionState | undefined,
+  now: number,
+  ttlMs: number
+): SelectionItem | undefined => {
   if (!state?.selectedIndex) {
+    return undefined;
+  }
+  if (isSelectionExpired(state, now, ttlMs)) {
     return undefined;
   }
   const index = state.selectedIndex - 1;

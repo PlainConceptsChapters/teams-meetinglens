@@ -11,8 +11,8 @@ Structured logs must include:
 - `tenantId` (redacted/truncated)
 - `userId` (redacted/truncated)
 - `meetingId` (redacted/truncated)
-- `graphRequestId` (when applicable)
-- `openAiRequestId` (when applicable)
+- `graphRequestId` (when applicable, not yet emitted)
+- `openAiRequestId` (when applicable, not yet emitted)
 
 ## Correlation IDs
 - Generate a request-scoped correlation ID at the channel entry point.

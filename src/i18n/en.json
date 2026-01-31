@@ -40,6 +40,7 @@
   "selection": {
     "needAgenda": "Please run /agenda first.",
     "needSelection": "Please select a meeting from the last agenda list (click a button or type its number).",
+    "expired": "Your previous selection expired. Please select a meeting again from the last agenda list.",
     "invalid": "Invalid selection. Choose one of the listed numbers.",
     "selected": "Selected: {title}"
   },

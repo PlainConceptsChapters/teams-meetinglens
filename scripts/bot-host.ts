@@ -16,10 +16,12 @@ import {
   agendaMaxItems,
   agendaMaxTranscriptChecks,
   botMentionText,
+  calendarMaxPages,
   graphAccessToken,
   graphBaseUrl,
   oauthConnection,
   requireEnv,
+  selectionTtlMs,
   systemTimeZone
 } from './bot/config.js';
 import { loadTranslations, createI18n } from './bot/i18n.js';
@@ -71,13 +73,17 @@ const { t, translateOutgoing, translateToEnglish, resolvePreferredLanguage, buil
 );
 
 const buildGraphServices = (request: ChannelRequest) =>
-  buildGraphServicesForRequest(request, graphBaseUrl, graphAccessToken, { maxTranscriptChecks: agendaMaxTranscriptChecks });
+  buildGraphServicesForRequest(request, graphBaseUrl, graphAccessToken, {
+    maxTranscriptChecks: agendaMaxTranscriptChecks,
+    maxPages: calendarMaxPages
+  });
 const getTranscriptService = (request: ChannelRequest) =>
   getMeetingTranscriptService(request, graphBaseUrl, graphAccessToken);
 const runGraphDebugForRequest = (request: ChannelRequest) =>
   runGraphDebug(request, graphBaseUrl, graphAccessToken, {
     maxTranscriptChecks: agendaMaxTranscriptChecks,
-    maxItems: agendaMaxItems
+    maxItems: agendaMaxItems,
+    maxPages: calendarMaxPages
   });
 
 const router = createRouter({
@@ -98,7 +104,8 @@ const router = createRouter({
   runGraphDebug: runGraphDebugForRequest,
   buildLlmClient,
   buildSummaryLlmClient,
-  agendaMaxItems
+  agendaMaxItems,
+  selectionTtlMs
 });
 
 type ActivityAttachment = Attachment & { contentLength?: number };

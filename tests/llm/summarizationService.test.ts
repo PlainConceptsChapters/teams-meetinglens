@@ -22,4 +22,23 @@ describe('SummarizationService', () => {
     expect(result.template).toContain('<h3>3. Meeting Purpose</h3>');
     expect(result.templateFormat).toBe('xml');
   });
+
+  it('repairs invalid JSON using merge client', async () => {
+    const badClient: LlmClient = {
+      complete: async () => 'not json'
+    };
+    const repairClient: LlmClient = {
+      complete: async () =>
+        JSON.stringify({
+          summary: 'Fixed',
+          keyPoints: [],
+          actionItems: [],
+          decisions: [],
+          topics: []
+        })
+    };
+    const service = new SummarizationService({ client: badClient, mergeClient: repairClient });
+    const result = await service.summarize({ raw: 'hello', cues: [] });
+    expect(result.summary).toContain('<h3>1. Meeting Header</h3>');
+  });
 });
