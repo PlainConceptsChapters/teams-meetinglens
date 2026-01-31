@@ -77,6 +77,7 @@ const requiredKeys = [
   'logs.statusOff',
   'summary.cardFallback',
   'summary.loadingText',
+  'summary.loadingMore',
   'summaryTemplate.summaryTitle',
   'summaryTemplate.decisions',
   'summaryTemplate.meetingHeader',

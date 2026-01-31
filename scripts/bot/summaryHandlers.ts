@@ -15,6 +15,7 @@ export const createSummaryHandlers = (deps: {
   graphAccessToken?: string;
   buildSignInResponse: (request: ChannelRequest, language: LanguageCode) => Promise<ChannelResponse>;
   buildLlmClient: () => LlmClient;
+  buildSummaryLlmClient: () => LlmClient;
   buildTranscript: () => Promise<{ raw: string; cues: [] }>;
   getMeetingTranscriptService: (request: ChannelRequest) => { onlineMeetingService: unknown; transcriptService: unknown };
   buildGraphServicesForRequest: (request: ChannelRequest) => { agendaService: { searchAgenda: Function } };
@@ -25,6 +26,7 @@ export const createSummaryHandlers = (deps: {
     graphAccessToken,
     buildSignInResponse,
     buildLlmClient,
+    buildSummaryLlmClient,
     buildTranscript,
     getMeetingTranscriptService,
     buildGraphServicesForRequest,
@@ -42,8 +44,9 @@ export const createSummaryHandlers = (deps: {
       try {
         const transcript = await getTranscriptFromMeetingContext(request, getMeetingTranscriptService);
         if (transcript?.raw) {
-          const client = buildLlmClient();
-          const summarizer = new SummarizationService({ client });
+          const client = buildSummaryLlmClient();
+          const mergeClient = buildLlmClient();
+          const summarizer = new SummarizationService({ client, mergeClient });
           const result = await summarizeWithLogging(request, transcript, summarizer, { language: 'en' }, correlationId);
           const card = buildSummaryAdaptiveCard(result, { language: 'en' });
           return {
@@ -60,8 +63,9 @@ export const createSummaryHandlers = (deps: {
           text: await translateOutgoing(t('transcript.notConfigured'), preferred)
         };
       }
-      const client = buildLlmClient();
-      const summarizer = new SummarizationService({ client });
+      const client = buildSummaryLlmClient();
+      const mergeClient = buildLlmClient();
+      const summarizer = new SummarizationService({ client, mergeClient });
       const result = await summarizeWithLogging(request, transcript, summarizer, { language: 'en' }, correlationId);
       const card = buildSummaryAdaptiveCard(result, { language: 'en' });
       return {
@@ -84,8 +88,9 @@ export const createSummaryHandlers = (deps: {
         text: await translateOutgoing(t('transcript.notAvailable'), preferred)
       };
     }
-    const client = buildLlmClient();
-    const summarizer = new SummarizationService({ client });
+    const client = buildSummaryLlmClient();
+    const mergeClient = buildLlmClient();
+    const summarizer = new SummarizationService({ client, mergeClient });
     const result = await summarizeWithLogging(request, transcript, summarizer, { language: 'en' }, correlationId);
     const card = buildSummaryAdaptiveCard(result, { language: 'en' });
     return {
@@ -109,8 +114,9 @@ export const createSummaryHandlers = (deps: {
     try {
       const transcriptFromContext = await getTranscriptFromMeetingContext(request, getMeetingTranscriptService);
       if (transcriptFromContext?.raw) {
-        const client = buildLlmClient();
-        const summarizer = new SummarizationService({ client });
+        const client = buildSummaryLlmClient();
+        const mergeClient = buildLlmClient();
+        const summarizer = new SummarizationService({ client, mergeClient });
         const result = await summarizeWithLogging(request, transcriptFromContext, summarizer, { language: 'en' }, correlationId);
         const card = buildSummaryAdaptiveCard(result, { language: 'en' });
         return {
@@ -143,8 +149,9 @@ export const createSummaryHandlers = (deps: {
     } catch {
       return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
     }
-    const client = buildLlmClient();
-    const summarizer = new SummarizationService({ client });
+    const client = buildSummaryLlmClient();
+    const mergeClient = buildLlmClient();
+    const summarizer = new SummarizationService({ client, mergeClient });
     const result = await summarizeWithLogging(request, transcript, summarizer, { language: 'en' }, correlationId);
     const card = buildSummaryAdaptiveCard(result, { language: 'en' });
     return {

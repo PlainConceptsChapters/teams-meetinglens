@@ -49,6 +49,8 @@ AZURE_TENANT_ID=
 GRAPH_SCOPES=
 AZURE_OPENAI_ENDPOINT=
 AZURE_OPENAI_DEPLOYMENT=
+AZURE_OPENAI_SUMMARY_DEPLOYMENT=
+BUILD_VERSION=
 KEY_VAULT_URI=
 LOG_LEVEL=
 ```
@@ -87,6 +89,7 @@ Azure OpenAI (Foundry) setup:
 - Deploy a chat model (e.g., GPT-4o/4.1) and note the deployment name.
 - Capture the endpoint and API key from the resource.
 - Populate `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT`, and `AZURE_OPENAI_API_VERSION`.
+  - Optional: set `AZURE_OPENAI_SUMMARY_DEPLOYMENT` to use a faster/cheaper model for summaries.
   - Recommended models: `gpt-4.1-mini` (default), `gpt-4.1-nano` (fast/low-cost).
   - Cheapest option: `gpt-4.1-nano` on Global Standard deployment.
 
@@ -137,7 +140,7 @@ Manifest SSO fields:
 ## Localization (i18n)
 User-facing bot text is stored in English only (`src/i18n/en.json`). At runtime the bot detects the user's language and uses Azure OpenAI to translate replies back to that language. Use `/language <code>` to override detection (example: `es`, `ro`, `fr`).
 
-Commands always start with `/` and are not translated (for example, `/summary`, `/qa`, `/agenda`).
+Commands always start with `/` and are not translated (for example, `/summary`, `/qa`, `/agenda`, `/version`).
 
 To update or extend copy:
 1. Edit `src/i18n/en.json` with the English source text.
@@ -153,11 +156,13 @@ Notes:
 - `bot:dev` starts the local Teams bot host.
 - `teamsapp:pack` creates a Teams app package zip under `teamsapp/`.
 - `teamsapp:build` renders `teamsapp/manifest.json` from `teamsapp/manifest.template.json` using `TEAMS_APP_ID`.
+ - `/version` returns the current build version (from `BUILD_VERSION` or `dev` fallback).
 
 Azure OpenAI variables (for summarization/Q&A):
 - `AZURE_OPENAI_ENDPOINT`
 - `AZURE_OPENAI_API_KEY`
 - `AZURE_OPENAI_DEPLOYMENT`
+- `AZURE_OPENAI_SUMMARY_DEPLOYMENT` (optional)
 - `AZURE_OPENAI_API_VERSION`
 
 

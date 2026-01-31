@@ -2,7 +2,7 @@ import { InvalidRequestError, OutputValidationError } from '../errors/index.js';
 import { TranscriptContent } from '../types/transcript.js';
 import { chunkText } from './chunker.js';
 import { redactSensitive } from './guardrails.js';
-import { buildSummarySystemPrompt, buildSummaryUserPrompt } from './promptTemplates.js';
+import { buildSummaryMergeSystemPrompt, buildSummaryMergeUserPrompt, buildSummarySystemPrompt, buildSummaryUserPrompt } from './promptTemplates.js';
 import { parseSummaryResult, SummaryResult, SummaryTemplateData, SummaryTopic } from './schema.js';
 import { LlmClient } from './types.js';
 import { renderSummaryTemplate } from './summaryTemplate.js';
@@ -11,12 +11,14 @@ export interface SummarizationOptions {
   maxTokensPerChunk?: number;
   overlapTokens?: number;
   maxChunks?: number;
+  parallelism?: number;
 }
 
 export type SummaryLanguage = 'en' | 'es' | 'ro';
 
 export interface SummarizationServiceOptions {
   client: LlmClient;
+  mergeClient?: LlmClient;
   options?: SummarizationOptions;
 }
 
@@ -183,14 +185,17 @@ const mergePartialSummaries = (partials: SummaryResult[]): SummaryResult => {
 
 export class SummarizationService {
   private readonly client: LlmClient;
+  private readonly mergeClient?: LlmClient;
   private readonly options: Required<SummarizationOptions>;
 
   constructor(options: SummarizationServiceOptions) {
     this.client = options.client;
+    this.mergeClient = options.mergeClient;
     this.options = {
       maxTokensPerChunk: options.options?.maxTokensPerChunk ?? 1500,
       overlapTokens: options.options?.overlapTokens ?? 150,
-      maxChunks: options.options?.maxChunks ?? 6
+      maxChunks: options.options?.maxChunks ?? 6,
+      parallelism: options.options?.parallelism ?? 2
     };
   }
 
@@ -209,16 +214,37 @@ export class SummarizationService {
       throw new InvalidRequestError('Unable to chunk transcript content.');
     }
 
-    const partials: SummaryResult[] = [];
-    for (const chunk of chunks) {
-      const response = await this.client.complete([
-        { role: 'system', content: buildSummarySystemPrompt(options?.language) },
-        { role: 'user', content: buildSummaryUserPrompt(chunk.text) }
-      ]);
-      partials.push(parseSummaryResult(response));
-    }
+    const parallelism = Math.max(1, this.options.parallelism);
+    const partials = new Array<SummaryResult>(chunks.length);
+    let nextIndex = 0;
+    const workerCount = Math.min(parallelism, chunks.length);
 
-    const merged = partials.length === 1 ? partials[0] : mergePartialSummaries(partials);
+    const runWorker = async () => {
+      for (;;) {
+        const index = nextIndex;
+        nextIndex += 1;
+        if (index >= chunks.length) {
+          return;
+        }
+        const chunk = chunks[index];
+        const response = await this.client.complete([
+          { role: 'system', content: buildSummarySystemPrompt(options?.language) },
+          { role: 'user', content: buildSummaryUserPrompt(chunk.text) }
+        ]);
+        partials[index] = parseSummaryResult(response);
+      }
+    };
+
+    await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
+
+    let merged = partials.length === 1 ? partials[0] : mergePartialSummaries(partials);
+    if (partials.length > 1 && this.mergeClient) {
+      const mergeResponse = await this.mergeClient.complete([
+        { role: 'system', content: buildSummaryMergeSystemPrompt(options?.language) },
+        { role: 'user', content: buildSummaryMergeUserPrompt(partials) }
+      ]);
+      merged = parseSummaryResult(mergeResponse);
+    }
     const redacted = redactSummary(merged);
     const template = renderSummaryTemplate(redacted, { language: options?.language, format: 'xml' });
     if (!template.trim()) {

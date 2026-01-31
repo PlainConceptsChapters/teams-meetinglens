@@ -44,6 +44,7 @@ export const createRouter = (deps: {
     | { ok: false; error?: string }
   >;
   buildLlmClient: () => LlmClient;
+  buildSummaryLlmClient: () => LlmClient;
 }) => {
   const {
     botMentionText,
@@ -61,7 +62,8 @@ export const createRouter = (deps: {
     buildGraphServicesForRequest,
     getMeetingTranscriptService,
     runGraphDebug,
-    buildLlmClient
+    buildLlmClient,
+    buildSummaryLlmClient
   } = deps;
 
   const buildSignInResponse = async (request: ChannelRequest, language: LanguageCode): Promise<ChannelResponse> => {
@@ -96,6 +98,7 @@ export const createRouter = (deps: {
     graphAccessToken,
     buildSignInResponse,
     buildLlmClient,
+    buildSummaryLlmClient,
     buildTranscript,
     getMeetingTranscriptService,
     buildGraphServicesForRequest,

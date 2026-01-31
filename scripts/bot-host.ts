@@ -41,13 +41,18 @@ const buildTranscript = async (): Promise<{ raw: string; cues: [] }> => {
   return { raw: '', cues: [] };
 };
 
-const buildLlmClient = () => {
+const buildLlmClient = (deploymentOverride?: string) => {
   return new AzureOpenAiClient({
     endpoint: requireEnv('AZURE_OPENAI_ENDPOINT'),
     apiKey: requireEnv('AZURE_OPENAI_API_KEY'),
-    deployment: requireEnv('AZURE_OPENAI_DEPLOYMENT'),
+    deployment: deploymentOverride ?? requireEnv('AZURE_OPENAI_DEPLOYMENT'),
     apiVersion: requireEnv('AZURE_OPENAI_API_VERSION')
   });
+};
+
+const buildSummaryLlmClient = () => {
+  const deployment = process.env.AZURE_OPENAI_SUMMARY_DEPLOYMENT ?? process.env.AZURE_OPENAI_DEPLOYMENT;
+  return buildLlmClient(deployment);
 };
 
 const translations = await loadTranslations();
@@ -78,7 +83,8 @@ const router = createRouter({
   buildGraphServicesForRequest: buildGraphServices,
   getMeetingTranscriptService: getTranscriptService,
   runGraphDebug: runGraphDebugForRequest,
-  buildLlmClient
+  buildLlmClient,
+  buildSummaryLlmClient
 });
 
 type ActivityAttachment = Attachment & { contentLength?: number };
@@ -204,6 +210,7 @@ class TeamsBot extends TeamsActivityHandler {
       }
 
       let loadingActivityId: string | undefined;
+      let loadingTimer: NodeJS.Timeout | undefined;
       const shouldShowSummaryLoading = isSummaryIntent(incomingText) && (graphToken || graphAccessToken);
       if (shouldShowSummaryLoading) {
         const preferred = await resolvePreferredLanguage(request);
@@ -212,6 +219,18 @@ class TeamsBot extends TeamsActivityHandler {
           text: await translateOutgoing(t('summary.loadingText'), preferred)
         });
         loadingActivityId = loadingActivity?.id;
+        loadingTimer = setTimeout(async () => {
+          try {
+            await context.updateActivity({
+              id: loadingActivityId,
+              type: 'message',
+              conversation: activity.conversation,
+              text: await translateOutgoing(t('summary.loadingMore'), preferred)
+            });
+          } catch {
+            // Ignore update failures for interim progress.
+          }
+        }, 4000);
       }
 
       const response = await router.handle(request);
@@ -237,6 +256,9 @@ class TeamsBot extends TeamsActivityHandler {
         hasSignIn: Boolean(signIn)
       });
 
+      if (loadingTimer) {
+        clearTimeout(loadingTimer);
+      }
       if (loadingActivityId) {
         try {
           await context.updateActivity({

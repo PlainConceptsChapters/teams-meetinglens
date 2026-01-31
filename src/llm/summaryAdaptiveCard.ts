@@ -13,8 +13,14 @@ const valueOrNotProvided = (value: string | undefined, notProvided: string): str
 
 const normalizeList = (lines: string[]) => lines.map((line) => line.trim()).filter(Boolean);
 
-
 const bulletLines = (lines: string[]) => lines.map((line) => `- ${line}`).join('\n');
+
+const truncateLine = (line: string, maxLength: number) => {
+  if (line.length <= maxLength) {
+    return line;
+  }
+  return `${line.slice(0, maxLength - 3).trimEnd()}...`;
+};
 
 const bulletsOrFallback = (lines: string[], notProvided: string) => {
   const normalized = normalizeList(lines);
@@ -125,6 +131,12 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
     () => ({ title: '', explanation: '' })
   ).slice(0, SUMMARY_LIMITS.keyPoints);
 
+  const decisions = ensureMinCount(
+    normalizeList(result.decisions),
+    2,
+    () => notProvided
+  ).slice(0, SUMMARY_LIMITS.keyPoints);
+
   const topics = ensureMinCount(
     data.topicsDetailed.length
       ? data.topicsDetailed
@@ -135,6 +147,25 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
 
   const partyALabel = normalizeText(data.nextSteps.partyA.name) || labels.partyA;
   const partyBLabel = normalizeText(data.nextSteps.partyB.name) || labels.partyB;
+
+  const keyPointLines = keyPoints.map((point) => {
+    const title = valueOrNotProvided(point.title, notProvided);
+    const explanation = normalizeText(point.explanation);
+    const line = explanation ? `${title} - ${explanation}` : title;
+    return truncateLine(line, 160);
+  });
+
+  const actionLines = actionItems.map((item) => {
+    const action = valueOrNotProvided(item.action, notProvided);
+    const owner = normalizeText(item.owner);
+    const due = normalizeText(item.dueDate);
+    const notes = normalizeText(item.notes);
+    const meta = normalizeList([owner, due, notes]).join(', ');
+    const line = meta ? `${action} (${meta})` : action;
+    return truncateLine(line, 160);
+  });
+
+  const decisionLines = decisions.map((line) => truncateLine(line, 160));
 
   const body = [
     {
@@ -171,36 +202,16 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
         }
       ]
     },
-    textBlock(labels.actionItems, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
-    textBlock(labels.forEachAction, { isSubtle: true, spacing: 'Small' }),
-    ...actionItems.flatMap((item) => [
-      textBlock(`${labels.actionVerbObject} ${valueOrNotProvided(item.action, notProvided)}`, { weight: 'Bolder' }),
-      {
-        type: 'FactSet',
-        facts: [
-          {
-            title: labels.owner,
-            value: valueOrNotProvided(item.owner, notProvided)
-          },
-          {
-            title: labels.dueDate,
-            value: valueOrNotProvided(item.dueDate, notProvided)
-          },
-          {
-            title: labels.notesContext,
-            value: valueOrNotProvided(item.notes, notProvided)
-          }
-        ]
-      }
-    ]),
     textBlock(labels.meetingPurpose, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
     textBlock(`${labels.purposeOneSentence} ${valueOrNotProvided(data.meetingPurpose, notProvided)}`),
     textBlock(labels.keyPoints, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
     textBlock(labels.shortListEachPoint, { isSubtle: true, spacing: 'Small' }),
-    ...keyPoints.flatMap((point) => [
-      textBlock(`${labels.pointTitle} ${valueOrNotProvided(point.title, notProvided)}`, { weight: 'Bolder' }),
-      textBlock(`${labels.pointExplanation} ${valueOrNotProvided(point.explanation, notProvided)}`)
-    ]),
+    textBlock(bulletsOrFallback(keyPointLines, notProvided)),
+    textBlock(labels.decisions, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
+    textBlock(bulletsOrFallback(decisionLines, notProvided)),
+    textBlock(labels.actionItems, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
+    textBlock(labels.forEachAction, { isSubtle: true, spacing: 'Small' }),
+    textBlock(bulletsOrFallback(actionLines, notProvided)),
     textBlock(labels.topicsDetailed, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
     ...topics.flatMap((topic) => {
       const observationLines = ensureMinCount(

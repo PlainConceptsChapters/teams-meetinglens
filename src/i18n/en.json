@@ -83,7 +83,8 @@
   },
   "summary": {
     "cardFallback": "Meeting summary",
-    "loadingText": "Working on it..."
+    "loadingText": "Working on your summary...",
+    "loadingMore": "Extracting more information..."
   },
   "summaryTemplate": {
     "summaryTitle": "Meeting Summary",

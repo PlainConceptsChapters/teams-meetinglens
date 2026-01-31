@@ -67,11 +67,12 @@ Steps:
    - `MICROSOFT_APP_TENANT_ID`: your Entra tenant id (same as `AZURE_TENANT_ID`).
    - Common mistake: swapping `TEAMS_APP_ID` and `TEAMS_BOT_ID` will break upload/routing.
    - Optional local testing:
-     - `BOT_TRANSCRIPT_TEXT`: inline transcript text for local testing.
-     - `BOT_TRANSCRIPT_FILE`: path to a transcript text file for local testing.
-     - `BOT_MENTION_TEXT`: bot mention text to strip (e.g., `@meetinglens`).
-     - `GRAPH_ACCESS_TOKEN`: delegated Graph access token for agenda search in local dev.
-     - Get a token with: `npm run auth:graph-token`
+    - `BOT_TRANSCRIPT_TEXT`: inline transcript text for local testing.
+    - `BOT_TRANSCRIPT_FILE`: path to a transcript text file for local testing.
+    - `BOT_MENTION_TEXT`: bot mention text to strip (e.g., `@meetinglens`).
+    - `GRAPH_ACCESS_TOKEN`: delegated Graph access token for agenda search in local dev.
+    - `AZURE_OPENAI_SUMMARY_DEPLOYMENT`: optional summary-specific deployment (faster/cheaper model).
+    - Get a token with: `npm run auth:graph-token`
      - For Teams SSO, set `BOT_OAUTH_CONNECTION` to the OAuth connection name configured in Azure Bot.
 2. Configure a dev tunnel to expose `http://localhost:3978/api/messages`.
 3. In Azure Bot registration, set the messaging endpoint to your tunnel URL + `/api/messages`.
