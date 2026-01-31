@@ -3,7 +3,7 @@ import { MeetingTranscriptService } from '../../src/agenda/meetingTranscriptServ
 import type { AgendaItem } from '../../src/agenda/types.js';
 import { QaService } from '../../src/llm/qnaService.js';
 import { SummarizationService } from '../../src/llm/summarizationService.js';
-import { buildSummaryAdaptiveCard } from '../../src/llm/summaryAdaptiveCard.js';
+import { renderSummaryTemplate } from '../../src/llm/summaryTemplate.js';
 import type { ChannelRequest, ChannelResponse } from '../../src/teams/types.js';
 import type { LanguageCode } from '../../src/teams/language.js';
 import type { LlmClient } from '../../src/llm/types.js';
@@ -105,11 +105,10 @@ export const createSummaryHandlers = (deps: {
         summaryOptions
       );
       await updateProgress(request, 'progress.summary', 'progress.steps.rendering', 92);
-      const card = buildSummaryAdaptiveCard(result, { language: 'en' });
-      const text = `${buildSelectionPrefix(request)}${t('summary.cardFallback')}\n${t('summary.followupHint')}`;
+      const summaryText = renderSummaryTemplate(result, { language: 'en', format: 'markdown' });
+      const text = `${buildSelectionPrefix(request)}${summaryText}\n${t('summary.followupHint')}`;
       return {
-        text: await translateOutgoing(text, preferred),
-        metadata: { adaptiveCard: JSON.stringify(card) }
+        text: await translateOutgoing(text, preferred)
       };
     } catch {
       return { text: await translateOutgoing(`${t('summary.failed')}\n${t('summary.retryHint')}`, preferred) };
