@@ -37,6 +37,7 @@ export interface TemplateLabels {
   partyB: string;
   step: string;
   notProvided: string;
+  notFound: string;
 }
 
 const getSection = (catalog: Record<string, unknown>): Record<string, unknown> => {
@@ -101,6 +102,7 @@ export const getSummaryTemplateLabels = (language?: string): TemplateLabels => {
     partyA: getLabel(targetSection, fallbackSection, 'partyA'),
     partyB: getLabel(targetSection, fallbackSection, 'partyB'),
     step: getLabel(targetSection, fallbackSection, 'step'),
-    notProvided: getLabel(targetSection, fallbackSection, 'notProvided')
+    notProvided: getLabel(targetSection, fallbackSection, 'notProvided'),
+    notFound: getLabel(targetSection, fallbackSection, 'notFound')
   };
 };

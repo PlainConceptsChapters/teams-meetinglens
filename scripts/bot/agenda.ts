@@ -264,6 +264,12 @@ export const handleAgendaRequest = async (params: {
   maxItems: number;
 }) : Promise<ChannelResponse> => {
   const { request, englishText, nlu, preferred, t, translateOutgoing, buildAgendaCard, selectionStore, buildGraphServicesForRequest, maxItems } = params;
+  const updateProgress = async (stepKey: string, percent: number) => {
+    await request.progress?.update({
+      label: `${t('progress.loading')} ${t('progress.agenda')} - ${t(stepKey)}`,
+      percent
+    });
+  };
   const fallbackRange = parseAgendaRange(englishText);
   const nluRange = resolveDateRangeFromNlu(nlu);
   const range = nluRange ?? { start: fallbackRange.start, end: fallbackRange.end };
@@ -279,6 +285,7 @@ export const handleAgendaRequest = async (params: {
   const { agendaService } = buildGraphServicesForRequest(request);
   let agenda;
   try {
+    await updateProgress('progress.steps.searchCalendar', 25);
     agenda = await agendaService.searchAgenda({
       ...formatDateRange(cappedRange),
       subjectContains: subjectQuery || undefined,
@@ -308,6 +315,7 @@ export const handleAgendaRequest = async (params: {
       text: await translateOutgoing(t('agenda.none', { range: formatRangeLabel(cappedRange) }), preferred)
     };
   }
+  await updateProgress('progress.steps.filterMeetings', 60);
   const filtered = items.filter((item) => {
     const start = item.start ? new Date(item.start) : undefined;
     return item.transcriptAvailable && (!start || start <= now);
@@ -329,6 +337,7 @@ export const handleAgendaRequest = async (params: {
       details: await translateOutgoing(item.details, preferred)
     }))
   );
+  await updateProgress('progress.steps.buildAgenda', 85);
   selectionStore.set(request.conversationId, { items: localizedItems, selectedIndex: undefined });
   logEvent(request, 'selection_listed', {
     component: 'agenda',

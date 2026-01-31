@@ -13,6 +13,11 @@ const valueOrNotProvided = (value: string | undefined, notProvided: string): str
   return trimmed ? trimmed : notProvided;
 };
 
+const valueOrNotFound = (value: string | undefined, notFound: string): string => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : notFound;
+};
+
 const normalizeList = (lines: string[]) => lines.map((line) => line.trim()).filter(Boolean);
 
 const bulletLines = (lines: string[]) => lines.map((line) => `- ${line}`).join('\n');
@@ -127,6 +132,7 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
   const labels = getSummaryTemplateLabels(options?.language);
   const data = buildTemplateData(result);
   const notProvided = labels.notProvided;
+  const notFound = labels.notFound;
 
   const meetingTitle = normalizeText(data.meetingHeader.meetingTitle) || labels.summaryTitle;
 
@@ -185,23 +191,23 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
       facts: [
         {
           title: labels.meetingTitle,
-          value: valueOrNotProvided(data.meetingHeader.meetingTitle, notProvided)
+          value: clampField(valueOrNotFound(data.meetingHeader.meetingTitle, notFound))
         },
         {
           title: labels.companiesParties,
-          value: valueOrNotProvided(data.meetingHeader.companiesParties, notProvided)
+          value: clampField(valueOrNotFound(data.meetingHeader.companiesParties, notFound))
         },
         {
           title: labels.date,
-          value: valueOrNotProvided(data.meetingHeader.date, notProvided)
+          value: clampField(valueOrNotFound(data.meetingHeader.date, notFound))
         },
         {
           title: labels.duration,
-          value: valueOrNotProvided(data.meetingHeader.duration, notProvided)
+          value: clampField(valueOrNotFound(data.meetingHeader.duration, notFound))
         },
         {
           title: labels.linkReference,
-          value: valueOrNotProvided(data.meetingHeader.linkReference, notProvided)
+          value: clampField(valueOrNotFound(data.meetingHeader.linkReference, notFound))
         }
       ]
     },

@@ -97,6 +97,16 @@ const requiredKeys = [
   'progress.summary',
   'progress.qa',
   'progress.generic',
+  'progress.steps.searchCalendar',
+  'progress.steps.filterMeetings',
+  'progress.steps.buildAgenda',
+  'progress.steps.fetchTranscript',
+  'progress.steps.chunking',
+  'progress.steps.summarizing',
+  'progress.steps.merging',
+  'progress.steps.rendering',
+  'progress.steps.answering',
+  'progress.steps.preparingResponse',
   'summaryTemplate.summaryTitle',
   'summaryTemplate.decisions',
   'summaryTemplate.meetingHeader',
@@ -132,7 +142,8 @@ const requiredKeys = [
   'summaryTemplate.partyA',
   'summaryTemplate.partyB',
   'summaryTemplate.step',
-  'summaryTemplate.notProvided'
+  'summaryTemplate.notProvided',
+  'summaryTemplate.notFound'
 ];
 
 describe('i18n catalogs', () => {

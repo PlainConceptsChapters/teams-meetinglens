@@ -109,7 +109,19 @@
     "agenda": "on your agenda",
     "summary": "on your summary",
     "qa": "on your answer",
-    "generic": "on it"
+    "generic": "on it",
+    "steps": {
+      "searchCalendar": "Searching your calendar",
+      "filterMeetings": "Filtering meetings with transcripts",
+      "buildAgenda": "Preparing agenda",
+      "fetchTranscript": "Fetching transcript",
+      "chunking": "Chunking transcript",
+      "summarizing": "Summarizing chunks",
+      "merging": "Assembling summary",
+      "rendering": "Rendering summary",
+      "answering": "Answering your question",
+      "preparingResponse": "Preparing response"
+    }
   },
   "summaryTemplate": {
     "summaryTitle": "Meeting Summary",
@@ -147,6 +159,7 @@
     "partyA": "Party A:",
     "partyB": "Party B:",
     "step": "Step",
-    "notProvided": "Not provided"
+    "notProvided": "Not provided",
+    "notFound": "Not found"
   }
 }

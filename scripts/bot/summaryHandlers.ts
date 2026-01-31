@@ -40,6 +40,18 @@ export const createSummaryHandlers = (deps: {
     selectionTtlMs
   } = deps;
 
+  const updateProgress = async (
+    request: ChannelRequest,
+    baseKey: string,
+    stepKey: string,
+    percent: number
+  ) => {
+    await request.progress?.update({
+      label: `${t('progress.loading')} ${t(baseKey)} - ${t(stepKey)}`,
+      percent
+    });
+  };
+
   const buildSelectionPrefix = (request: ChannelRequest): string => {
     const store = selectionStore.get(request.conversationId);
     const selected = getSelectedItem(store, Date.now(), selectionTtlMs);
@@ -66,10 +78,24 @@ export const createSummaryHandlers = (deps: {
     correlationId: string
   ): Promise<ChannelResponse> => {
     try {
+      await updateProgress(request, 'progress.summary', 'progress.steps.chunking', 35);
       const client = buildSummaryLlmClient();
       const mergeClient = buildLlmClient();
-      const summarizer = new SummarizationService({ client, mergeClient });
+      const summarizer = new SummarizationService({
+        client,
+        mergeClient,
+        onProgress: async (update) => {
+          if (update.stage === 'chunk' && update.total) {
+            const percent = 40 + Math.round((update.completed / update.total) * 40);
+            await updateProgress(request, 'progress.summary', 'progress.steps.summarizing', percent);
+          }
+          if (update.stage === 'merge') {
+            await updateProgress(request, 'progress.summary', 'progress.steps.merging', 85);
+          }
+        }
+      });
       const result = await summarizeWithLogging(request, transcript, summarizer, { language: 'en' }, correlationId);
+      await updateProgress(request, 'progress.summary', 'progress.steps.rendering', 92);
       const card = buildSummaryAdaptiveCard(result, { language: 'en' });
       const text = `${buildSelectionPrefix(request)}${t('summary.cardFallback')}\n${t('summary.followupHint')}`;
       return {
@@ -125,6 +151,7 @@ export const createSummaryHandlers = (deps: {
       onlineMeetingService: onlineMeetingService as any,
       transcriptService: transcriptService as any
     });
+    await updateProgress(request, 'progress.summary', 'progress.steps.fetchTranscript', 20);
     const transcript = await transcriptLookup.getTranscriptForAgendaItem(recent);
     await setSelectionFromMeeting(request, preferred, recent);
     return buildSummaryResponse(request, preferred, transcript, correlationId);
@@ -150,6 +177,7 @@ export const createSummaryHandlers = (deps: {
     const selected = getSelectedItem(store, Date.now(), selectionTtlMs)?.agendaItem;
     if (!store || !store.items.length) {
       try {
+        await updateProgress(request, 'progress.summary', 'progress.steps.fetchTranscript', 20);
         const transcript = await getTranscriptFromMeetingContext(request, getMeetingTranscriptService);
         if (transcript?.raw) {
           return buildSummaryResponse(request, preferred, transcript, correlationId);
@@ -157,6 +185,7 @@ export const createSummaryHandlers = (deps: {
       } catch {
         return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
       }
+      await updateProgress(request, 'progress.summary', 'progress.steps.fetchTranscript', 30);
       const transcript = await buildTranscript();
       if (!transcript.raw) {
         return {
@@ -172,6 +201,7 @@ export const createSummaryHandlers = (deps: {
     const { onlineMeetingService, transcriptService } = getMeetingTranscriptService(request);
     let transcript;
     try {
+      await updateProgress(request, 'progress.summary', 'progress.steps.fetchTranscript', 20);
       const transcriptLookup = new MeetingTranscriptService({
         onlineMeetingService: onlineMeetingService as any,
         transcriptService: transcriptService as any
@@ -212,6 +242,7 @@ export const createSummaryHandlers = (deps: {
     }
     const selected = getSelectedItem(store, Date.now(), selectionTtlMs)?.agendaItem;
     try {
+      await updateProgress(request, 'progress.summary', 'progress.steps.fetchTranscript', 20);
       const transcriptFromContext = await getTranscriptFromMeetingContext(request, getMeetingTranscriptService);
       if (transcriptFromContext?.raw) {
         return buildSummaryResponse(request, preferred, transcriptFromContext, correlationId);
@@ -237,6 +268,7 @@ export const createSummaryHandlers = (deps: {
     const { onlineMeetingService, transcriptService } = getMeetingTranscriptService(request);
     let transcript;
     try {
+      await updateProgress(request, 'progress.summary', 'progress.steps.fetchTranscript', 20);
       const transcriptLookup = new MeetingTranscriptService({
         onlineMeetingService: onlineMeetingService as any,
         transcriptService: transcriptService as any
@@ -264,12 +296,15 @@ export const createSummaryHandlers = (deps: {
     }
     if (!store || !store.items.length) {
       try {
+        await updateProgress(request, 'progress.qa', 'progress.steps.fetchTranscript', 25);
         const transcript = await getTranscriptFromMeetingContext(request, getMeetingTranscriptService);
         if (transcript?.raw) {
           const client = buildLlmClient();
           const qa = new QaService({ client });
           try {
+            await updateProgress(request, 'progress.qa', 'progress.steps.answering', 70);
             const result = await answerWithLogging(request, englishQuestion, transcript, qa, { language: 'en' }, correlationId);
+            await updateProgress(request, 'progress.qa', 'progress.steps.preparingResponse', 90);
             return buildQaResponse(request, preferred, result.answer);
           } catch {
             return buildQaError(preferred);
@@ -278,6 +313,7 @@ export const createSummaryHandlers = (deps: {
       } catch {
         return { text: await translateOutgoing(t('transcript.notAvailable'), preferred) };
       }
+      await updateProgress(request, 'progress.qa', 'progress.steps.fetchTranscript', 35);
       const transcript = await buildTranscript();
       if (!transcript.raw) {
         return {
@@ -287,7 +323,9 @@ export const createSummaryHandlers = (deps: {
       const client = buildLlmClient();
       const qa = new QaService({ client });
       try {
+        await updateProgress(request, 'progress.qa', 'progress.steps.answering', 70);
         const result = await answerWithLogging(request, englishQuestion, transcript, qa, { language: 'en' }, correlationId);
+        await updateProgress(request, 'progress.qa', 'progress.steps.preparingResponse', 90);
         return buildQaResponse(request, preferred, result.answer);
       } catch {
         return buildQaError(preferred);
@@ -300,6 +338,7 @@ export const createSummaryHandlers = (deps: {
     const { onlineMeetingService, transcriptService } = getMeetingTranscriptService(request);
     let transcript;
     try {
+      await updateProgress(request, 'progress.qa', 'progress.steps.fetchTranscript', 25);
       const transcriptLookup = new MeetingTranscriptService({
         onlineMeetingService: onlineMeetingService as any,
         transcriptService: transcriptService as any
@@ -313,7 +352,9 @@ export const createSummaryHandlers = (deps: {
     const client = buildLlmClient();
     const qa = new QaService({ client });
     try {
+      await updateProgress(request, 'progress.qa', 'progress.steps.answering', 70);
       const result = await answerWithLogging(request, englishQuestion, transcript, qa, { language: 'en' }, correlationId);
+      await updateProgress(request, 'progress.qa', 'progress.steps.preparingResponse', 90);
       return buildQaResponse(request, preferred, result.answer);
     } catch {
       return buildQaError(preferred);
@@ -342,12 +383,15 @@ export const createSummaryHandlers = (deps: {
     }
     const selected = getSelectedItem(store, Date.now(), selectionTtlMs)?.agendaItem;
     try {
+      await updateProgress(request, 'progress.qa', 'progress.steps.fetchTranscript', 25);
       const transcriptFromContext = await getTranscriptFromMeetingContext(request, getMeetingTranscriptService);
       if (transcriptFromContext?.raw) {
         const client = buildLlmClient();
         const qa = new QaService({ client });
         try {
+          await updateProgress(request, 'progress.qa', 'progress.steps.answering', 70);
           const result = await answerWithLogging(request, question, transcriptFromContext, qa, { language: 'en' }, correlationId);
+          await updateProgress(request, 'progress.qa', 'progress.steps.preparingResponse', 90);
           return buildQaResponse(request, preferred, result.answer);
         } catch {
           return buildQaError(preferred);
@@ -369,6 +413,7 @@ export const createSummaryHandlers = (deps: {
       const { onlineMeetingService, transcriptService } = getMeetingTranscriptService(request);
       let transcript;
       try {
+        await updateProgress(request, 'progress.qa', 'progress.steps.fetchTranscript', 25);
         const transcriptLookup = new MeetingTranscriptService({
           onlineMeetingService: onlineMeetingService as any,
           transcriptService: transcriptService as any
@@ -380,7 +425,9 @@ export const createSummaryHandlers = (deps: {
       const client = buildLlmClient();
       const qa = new QaService({ client });
       try {
+        await updateProgress(request, 'progress.qa', 'progress.steps.answering', 70);
         const result = await answerWithLogging(request, question, transcript, qa, { language: 'en' }, correlationId);
+        await updateProgress(request, 'progress.qa', 'progress.steps.preparingResponse', 90);
         return buildQaResponse(request, preferred, result.answer);
       } catch {
         return buildQaError(preferred);
@@ -396,7 +443,9 @@ export const createSummaryHandlers = (deps: {
       const client = buildLlmClient();
       const qa = new QaService({ client });
       try {
+        await updateProgress(request, 'progress.qa', 'progress.steps.answering', 70);
         const result = await answerWithLogging(request, question, transcript, qa, { language: 'en' }, correlationId);
+        await updateProgress(request, 'progress.qa', 'progress.steps.preparingResponse', 90);
         return buildQaResponse(request, preferred, result.answer);
       } catch {
         return buildQaError(preferred);

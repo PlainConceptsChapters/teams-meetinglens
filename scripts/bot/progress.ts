@@ -4,79 +4,97 @@ import type { ConversationAccount } from 'botframework-schema';
 export interface ProgressControllerOptions {
   context: TurnContext;
   conversation?: ConversationAccount;
-  label: string;
   translate: (text: string) => Promise<string>;
   doneLabel: string;
   delayMs?: number;
-  intervalMs?: number;
+}
+
+export interface ProgressUpdate {
+  label: string;
+  percent: number;
 }
 
 export interface ProgressController {
+  update: (update: ProgressUpdate) => Promise<void>;
   finish: (outgoing: Partial<Activity>) => Promise<void>;
   cancel: () => void;
 }
 
+const clampPercent = (value: number, max = 99) => {
+  if (Number.isNaN(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(max, Math.round(value)));
+};
+
 export const buildProgressBar = (percent: number, width = 10) => {
-  const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+  const clamped = clampPercent(percent, 100);
   const filled = Math.round((clamped / 100) * width);
-  const bar = `${'█'.repeat(filled)}${'-'.repeat(width - filled)}`;
+  const bar = `${'#'.repeat(filled)}${'-'.repeat(width - filled)}`;
   return `[${bar}] ${clamped}%`;
 };
 
 export const createProgressController = (options: ProgressControllerOptions): ProgressController => {
-  const {
-    context,
-    conversation,
-    label,
-    translate,
-    doneLabel,
-    delayMs = 1000,
-    intervalMs = 1500
-  } = options;
+  const { context, conversation, translate, doneLabel, delayMs = 1000 } = options;
   let activityId: string | undefined;
   let timer: NodeJS.Timeout | undefined;
-  let interval: NodeJS.Timeout | undefined;
-  let percent = 0;
+  let pending: ProgressUpdate | undefined;
   let started = false;
 
-  const start = async () => {
-    if (started) {
+  const sendProgress = async (update: ProgressUpdate, useMax = 99) => {
+    const label = await translate(update.label);
+    const percent = clampPercent(update.percent, useMax);
+    const text = `${label}\n${buildProgressBar(percent)}`;
+    if (!activityId) {
+      const response = await context.sendActivity({ text });
+      activityId = response?.id;
+      return;
+    }
+    await context.updateActivity({
+      id: activityId,
+      type: 'message',
+      conversation,
+      text
+    });
+  };
+
+  const startIfNeeded = async () => {
+    if (started || !pending) {
       return;
     }
     started = true;
-    await context.sendActivity({ type: 'typing' });
-    percent = 10;
-    const text = `${await translate(label)}\n${buildProgressBar(percent)}`;
-    const response = await context.sendActivity({ text });
-    activityId = response?.id;
-    interval = setInterval(async () => {
-      try {
-        percent = Math.min(95, percent + 7);
-        const updated = `${await translate(label)}\n${buildProgressBar(percent)}`;
-          await context.updateActivity({
-            id: activityId,
-            type: 'message',
-            conversation,
-            text: updated
-          });
-      } catch {
-        // Ignore update failures for progress.
-      }
-    }, intervalMs);
+    try {
+      await context.sendActivity({ type: 'typing' });
+      await sendProgress(pending);
+    } catch {
+      // Ignore progress failures.
+    }
   };
 
-  const scheduleStart = () => {
-    timer = setTimeout(() => {
-      void start();
-    }, delayMs);
+  const update = async (updatePayload: ProgressUpdate) => {
+    pending = { ...updatePayload, percent: clampPercent(updatePayload.percent, 99) };
+    if (!started) {
+      if (delayMs === 0) {
+        await startIfNeeded();
+        return;
+      }
+      if (!timer) {
+        timer = setTimeout(() => {
+          void startIfNeeded();
+        }, delayMs);
+      }
+      return;
+    }
+    try {
+      await sendProgress(pending);
+    } catch {
+      // Ignore progress failures.
+    }
   };
 
   const finish = async (outgoing: Partial<Activity>) => {
     if (timer) {
       clearTimeout(timer);
-    }
-    if (interval) {
-      clearInterval(interval);
     }
     if (activityId) {
       try {
@@ -105,12 +123,7 @@ export const createProgressController = (options: ProgressControllerOptions): Pr
     if (timer) {
       clearTimeout(timer);
     }
-    if (interval) {
-      clearInterval(interval);
-    }
   };
 
-  scheduleStart();
-
-  return { finish, cancel };
+  return { update, finish, cancel };
 };

@@ -10,6 +10,11 @@ const valueOrNotProvided = (value: string | undefined, notProvided: string): str
   return trimmed ? trimmed : notProvided;
 };
 
+const valueOrNotFound = (value: string | undefined, notFound: string): string => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : notFound;
+};
+
 const normalizeSteps = (steps: string[], minCount: number, notProvided: string): string[] => {
   const filtered = steps.map((step) => step.trim()).filter(Boolean);
   while (filtered.length < minCount) {
@@ -87,14 +92,15 @@ const escapeXml = (value: string): string => {
 
 const renderMarkdown = (data: SummaryTemplateData, labels: ReturnType<typeof getSummaryTemplateLabels>): string => {
   const notProvided = labels.notProvided;
+  const notFound = labels.notFound;
   const lines: string[] = [];
 
   lines.push(`**1. ${labels.meetingHeader}**`);
-  lines.push(`- **${labels.meetingTitle}** ${valueOrNotProvided(data.meetingHeader.meetingTitle, notProvided)}`);
-  lines.push(`- **${labels.companiesParties}** ${valueOrNotProvided(data.meetingHeader.companiesParties, notProvided)}`);
-  lines.push(`- **${labels.date}** ${valueOrNotProvided(data.meetingHeader.date, notProvided)}`);
-  lines.push(`- **${labels.duration}** ${valueOrNotProvided(data.meetingHeader.duration, notProvided)}`);
-  lines.push(`- **${labels.linkReference}** ${valueOrNotProvided(data.meetingHeader.linkReference, notProvided)}`);
+  lines.push(`- **${labels.meetingTitle}** ${valueOrNotFound(data.meetingHeader.meetingTitle, notFound)}`);
+  lines.push(`- **${labels.companiesParties}** ${valueOrNotFound(data.meetingHeader.companiesParties, notFound)}`);
+  lines.push(`- **${labels.date}** ${valueOrNotFound(data.meetingHeader.date, notFound)}`);
+  lines.push(`- **${labels.duration}** ${valueOrNotFound(data.meetingHeader.duration, notFound)}`);
+  lines.push(`- **${labels.linkReference}** ${valueOrNotFound(data.meetingHeader.linkReference, notFound)}`);
   lines.push('');
 
   lines.push(`**2. ${labels.actionItems}**`);
@@ -176,25 +182,26 @@ const renderMarkdown = (data: SummaryTemplateData, labels: ReturnType<typeof get
 
 const renderXml = (data: SummaryTemplateData, labels: ReturnType<typeof getSummaryTemplateLabels>): string => {
   const notProvided = labels.notProvided;
+  const notFound = labels.notFound;
   const lines: string[] = [];
 
   lines.push(`<h3>1. ${labels.meetingHeader}</h3>`);
   lines.push('<ul>');
   lines.push(
-    `<li><i>${labels.meetingTitle}</i> ${escapeXml(valueOrNotProvided(data.meetingHeader.meetingTitle, notProvided))}</li>`
+    `<li><i>${labels.meetingTitle}</i> ${escapeXml(valueOrNotFound(data.meetingHeader.meetingTitle, notFound))}</li>`
   );
   lines.push(
     `<li><i>${labels.companiesParties}</i> ${escapeXml(
-      valueOrNotProvided(data.meetingHeader.companiesParties, notProvided)
+      valueOrNotFound(data.meetingHeader.companiesParties, notFound)
     )}</li>`
   );
-  lines.push(`<li><i>${labels.date}</i> ${escapeXml(valueOrNotProvided(data.meetingHeader.date, notProvided))}</li>`);
+  lines.push(`<li><i>${labels.date}</i> ${escapeXml(valueOrNotFound(data.meetingHeader.date, notFound))}</li>`);
   lines.push(
-    `<li><i>${labels.duration}</i> ${escapeXml(valueOrNotProvided(data.meetingHeader.duration, notProvided))}</li>`
+    `<li><i>${labels.duration}</i> ${escapeXml(valueOrNotFound(data.meetingHeader.duration, notFound))}</li>`
   );
   lines.push(
     `<li><i>${labels.linkReference}</i> ${escapeXml(
-      valueOrNotProvided(data.meetingHeader.linkReference, notProvided)
+      valueOrNotFound(data.meetingHeader.linkReference, notFound)
     )}</li>`
   );
   lines.push('</ul>');

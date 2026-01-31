@@ -29,6 +29,16 @@ export interface ChannelRequest {
   meetingJoinUrl?: string;
   graphToken?: string;
   signInLink?: string;
+  progress?: ProgressReporter;
+}
+
+export interface ProgressUpdate {
+  label: string;
+  percent: number;
+}
+
+export interface ProgressReporter {
+  update: (update: ProgressUpdate) => Promise<void>;
 }
 
 export interface ChannelResponse {

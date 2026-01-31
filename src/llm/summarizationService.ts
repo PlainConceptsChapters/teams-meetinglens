@@ -6,6 +6,7 @@ import { buildSummaryMergeSystemPrompt, buildSummaryMergeUserPrompt, buildSummar
 import { parseSummaryResult, SummaryResult, SummaryTemplateData, SummaryTopic } from './schema.js';
 import { LlmClient } from './types.js';
 import { renderSummaryTemplate } from './summaryTemplate.js';
+import { SUMMARY_LIMITS } from './summaryLimits.js';
 
 export interface SummarizationOptions {
   maxTokensPerChunk?: number;
@@ -20,6 +21,13 @@ export interface SummarizationServiceOptions {
   client: LlmClient;
   mergeClient?: LlmClient;
   options?: SummarizationOptions;
+  onProgress?: (update: SummarizationProgressUpdate) => void | Promise<void>;
+}
+
+export interface SummarizationProgressUpdate {
+  stage: 'chunk' | 'merge';
+  completed: number;
+  total?: number;
 }
 
 const buildTranscriptText = (content: TranscriptContent): string => {
@@ -183,6 +191,69 @@ const mergePartialSummaries = (partials: SummaryResult[]): SummaryResult => {
   return { summary, keyPoints, actionItems, decisions, topics, templateData };
 };
 
+const padArray = <T,>(items: T[], minCount: number, filler: () => T): T[] => {
+  const result = [...items];
+  while (result.length < minCount) {
+    result.push(filler());
+  }
+  return result;
+};
+
+const normalizeTemplateData = (data?: SummaryTemplateData): SummaryTemplateData => {
+  const base = data ?? createEmptyTemplateData();
+  const actionItems = padArray(base.actionItemsDetailed, 2, () => ({ action: '', owner: '', dueDate: '', notes: '' })).slice(
+    0,
+    SUMMARY_LIMITS.actionItems
+  );
+  const keyPoints = padArray(base.keyPointsDetailed, 2, () => ({ title: '', explanation: '' })).slice(
+    0,
+    SUMMARY_LIMITS.keyPoints
+  );
+  const topics = padArray(
+    base.topicsDetailed,
+    2,
+    () => ({ topic: '', issueDescription: '', observations: [], rootCause: '', impact: '' })
+  )
+    .slice(0, SUMMARY_LIMITS.topics)
+    .map((topic) => ({
+      ...topic,
+      observations: padArray(topic.observations ?? [], 2, () => '').slice(0, SUMMARY_LIMITS.observationsPerTopic)
+    }));
+  const partyASteps = padArray(base.nextSteps.partyA.steps ?? [], 2, () => '').slice(0, SUMMARY_LIMITS.nextStepsPerParty);
+  const partyBSteps = padArray(base.nextSteps.partyB.steps ?? [], 2, () => '').slice(0, SUMMARY_LIMITS.nextStepsPerParty);
+
+  return {
+    meetingHeader: base.meetingHeader,
+    actionItemsDetailed: actionItems,
+    meetingPurpose: base.meetingPurpose,
+    keyPointsDetailed: keyPoints,
+    topicsDetailed: topics,
+    pathForward: base.pathForward,
+    nextSteps: {
+      partyA: { name: base.nextSteps.partyA.name, steps: partyASteps },
+      partyB: { name: base.nextSteps.partyB.name, steps: partyBSteps }
+    }
+  };
+};
+
+const hasTemplateViolations = (data?: SummaryTemplateData): boolean => {
+  const template = data ?? createEmptyTemplateData();
+  const listLengths = [
+    template.actionItemsDetailed.length,
+    template.keyPointsDetailed.length,
+    template.topicsDetailed.length,
+    template.nextSteps.partyA.steps.length,
+    template.nextSteps.partyB.steps.length
+  ];
+  if (listLengths.some((len) => len < 2 || len > 5)) {
+    return true;
+  }
+  if (template.topicsDetailed.some((topic) => topic.observations.length < 2 || topic.observations.length > 5)) {
+    return true;
+  }
+  return false;
+};
+
 const createEmptyTemplateData = (): SummaryTemplateData => ({
   meetingHeader: {
     meetingTitle: '',
@@ -247,6 +318,7 @@ export class SummarizationService {
   private readonly client: LlmClient;
   private readonly mergeClient?: LlmClient;
   private readonly options: Required<SummarizationOptions>;
+  private readonly onProgress?: (update: SummarizationProgressUpdate) => void | Promise<void>;
 
   constructor(options: SummarizationServiceOptions) {
     this.client = options.client;
@@ -257,6 +329,7 @@ export class SummarizationService {
       maxChunks: options.options?.maxChunks ?? 6,
       parallelism: options.options?.parallelism ?? 2
     };
+    this.onProgress = options.onProgress;
   }
 
   async summarize(content: TranscriptContent, options?: { language?: SummaryLanguage }): Promise<SummaryResult> {
@@ -277,7 +350,16 @@ export class SummarizationService {
     const parallelism = Math.max(1, this.options.parallelism);
     const partials = new Array<SummaryResult>(chunks.length);
     let nextIndex = 0;
+    let completed = 0;
     const workerCount = Math.min(parallelism, chunks.length);
+    const reportProgress = async (update: SummarizationProgressUpdate) => {
+      try {
+        await this.onProgress?.(update);
+      } catch {
+        // Ignore progress failures.
+      }
+    };
+    await reportProgress({ stage: 'chunk', completed: 0, total: chunks.length });
 
     const runWorker = async () => {
       for (;;) {
@@ -308,6 +390,8 @@ export class SummarizationService {
           }
           partials[index] = createEmptySummary();
         }
+        completed += 1;
+        await reportProgress({ stage: 'chunk', completed, total: chunks.length });
       }
     };
 
@@ -316,6 +400,7 @@ export class SummarizationService {
 
       let merged = partials.length === 1 ? partials[0] : mergePartialSummaries(partials);
       if (partials.length > 1 && this.mergeClient) {
+        await reportProgress({ stage: 'merge', completed: 0, total: 1 });
         const mergeResponse = await this.mergeClient.complete([
           { role: 'system', content: buildSummaryMergeSystemPrompt(options?.language) },
           { role: 'user', content: buildSummaryMergeUserPrompt(partials) }
@@ -333,7 +418,20 @@ export class SummarizationService {
             merged = mergePartialSummaries(partials);
           }
         }
+        await reportProgress({ stage: 'merge', completed: 1, total: 1 });
       }
+      if (hasTemplateViolations(merged.templateData) && this.mergeClient) {
+        try {
+          const compliance = await this.mergeClient.complete([
+            { role: 'system', content: buildSummaryRepairSystemPrompt(options?.language) },
+            { role: 'user', content: buildSummaryRepairUserPrompt(JSON.stringify(merged)) }
+          ]);
+          merged = parseSummaryResult(compliance);
+        } catch {
+          // Keep merged as-is and normalize below.
+        }
+      }
+      merged.templateData = normalizeTemplateData(merged.templateData);
       const redacted = redactSummary(merged);
       const template = renderSummaryTemplate(redacted, { language: options?.language, format: 'xml' });
       if (!template.trim()) {

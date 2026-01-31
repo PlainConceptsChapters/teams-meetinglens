@@ -231,24 +231,18 @@ class TeamsBot extends TeamsActivityHandler {
         return;
       }
 
-      const trimmedIncoming = incomingText.trim().toLowerCase();
-      const progressLabelKey = trimmedIncoming.startsWith('/agenda')
-        ? 'progress.agenda'
-        : trimmedIncoming.startsWith('/summary')
-          ? 'progress.summary'
-          : trimmedIncoming.startsWith('/qa')
-            ? 'progress.qa'
-            : 'progress.generic';
-
       const preferred = await resolvePreferredLanguage(request);
-      const progressLabel = `${t('progress.loading')} ${t(progressLabelKey)}`;
       const progress = createProgressController({
         context,
         conversation: activity.conversation,
-        label: progressLabel,
         doneLabel: t('progress.done'),
         translate: async (text) => translateOutgoing(text, preferred)
       });
+      request.progress = {
+        update: async ({ label, percent }) => {
+          await progress.update({ label, percent });
+        }
+      };
 
       const response = await router.handle(request);
       const metadata = response.metadata?.adaptiveCard;
