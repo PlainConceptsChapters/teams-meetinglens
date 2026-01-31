@@ -127,10 +127,13 @@ export const createI18n = (translations: TranslationCatalog, buildLlmClient: () 
     }
     const locale = normalizeLanguage(request.locale);
     if (locale) {
+      if (autoLanguageAllowList.has(locale)) {
+        return locale;
+      }
       if (isLikelyEnglishText(request.text)) {
         return 'en';
       }
-      return autoLanguageAllowList.has(locale) ? locale : 'en';
+      return 'en';
     }
     if (hasNonAscii(request.text)) {
       const service = getTranslationService();

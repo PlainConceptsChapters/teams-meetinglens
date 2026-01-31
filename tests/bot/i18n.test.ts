@@ -25,7 +25,7 @@ describe('language auto-detection', () => {
 
   it('accepts Spanish locale for auto-detection', async () => {
     const { resolvePreferredLanguage } = createI18n({}, stubClient);
-    const request = createRequest({ locale: 'es-ES', text: 'hola' });
+    const request = createRequest({ locale: 'es-ES', text: 'hola!' });
     const lang = await resolvePreferredLanguage(request);
     expect(lang).toBe('es');
   });
