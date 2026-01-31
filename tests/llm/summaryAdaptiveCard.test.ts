@@ -47,7 +47,7 @@ describe('buildSummaryAdaptiveCard', () => {
     expect(card.content.version).toBe('1.4');
     const first = card.content.body[0];
     expect(first.type).toBe('TextBlock');
-    if (first.type === 'TextBlock') {
+    if ('text' in first) {
       expect(first.text).toContain('Meeting Summary');
     }
   });
