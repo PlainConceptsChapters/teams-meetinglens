@@ -59,6 +59,6 @@ describe('renderSummaryTemplate', () => {
       topics: []
     };
     const output = renderSummaryTemplate(minimal, { language: 'en' });
-    expect(output).toContain('Not provided');
+    expect(output).toContain('None');
   });
 });

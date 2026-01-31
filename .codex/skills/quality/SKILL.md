@@ -39,7 +39,6 @@ Define quality gates, unit-focused testing strategy, and CI expectations for tea
 ## Quality bar / validation checklist
 - CI gates include linting, unit tests, and security scanning
 - All modular services have unit tests defined
-- Backlog status is consistent and updated
 
 ## Related documentation
 - `../../README.md`

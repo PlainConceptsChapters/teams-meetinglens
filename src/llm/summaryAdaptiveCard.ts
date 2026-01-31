@@ -134,8 +134,6 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
   const notProvided = labels.notProvided;
   const notFound = labels.notFound;
 
-  const meetingTitle = normalizeText(data.meetingHeader.meetingTitle) || labels.summaryTitle;
-
   const actionItems = ensureMinCount(
     data.actionItemsDetailed.length ? data.actionItemsDetailed : [{ action: '', owner: '', dueDate: '', notes: '' }],
     2,
@@ -156,69 +154,33 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
     () => ({ topic: '', issueDescription: '', observations: [], rootCause: '', impact: '' })
   ).slice(0, SUMMARY_LIMITS.topics);
 
-  const partyALabel = normalizeText(data.nextSteps.partyA.name) || labels.partyA;
-  const partyBLabel = normalizeText(data.nextSteps.partyB.name) || labels.partyB;
-
-  const keyPointLines = keyPoints.map((point) => {
-    const title = clampField(valueOrNotProvided(point.title, notProvided));
-    const explanation = clampField(normalizeText(point.explanation));
-    const line = explanation ? `${title} - ${explanation}` : title;
-    return truncateLine(line, MAX_FIELD_CHARS);
-  });
-
-  const actionLines = actionItems.map((item) => {
-    const action = clampField(valueOrNotProvided(item.action, notProvided));
-    const owner = clampField(normalizeText(item.owner));
-    const due = clampField(normalizeText(item.dueDate));
-    const notes = clampField(normalizeText(item.notes));
-    const meta = normalizeList([owner, due, notes]).join(', ');
-    const line = meta ? `${action} (${meta})` : action;
-    return truncateLine(line, MAX_FIELD_CHARS);
-  });
+  const partyAName = clampField(valueOrNotProvided(data.nextSteps.partyA.name, notProvided));
+  const partyBName = clampField(valueOrNotProvided(data.nextSteps.partyB.name, notProvided));
 
   const body = [
-    {
-      type: 'Container',
-      style: 'emphasis',
-      bleed: true,
-      items: [
-        textBlock(meetingTitle, { weight: 'Bolder', size: 'Large' })
-      ]
-    },
+    textBlock(labels.summaryTitle, { weight: 'Bolder', size: 'Large' }),
     textBlock(labels.meetingHeader, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
-    {
-      type: 'FactSet',
-      facts: [
-        {
-          title: labels.meetingTitle,
-          value: clampField(valueOrNotFound(data.meetingHeader.meetingTitle, notFound))
-        },
-        {
-          title: labels.companiesParties,
-          value: clampField(valueOrNotFound(data.meetingHeader.companiesParties, notFound))
-        },
-        {
-          title: labels.date,
-          value: clampField(valueOrNotFound(data.meetingHeader.date, notFound))
-        },
-        {
-          title: labels.duration,
-          value: clampField(valueOrNotFound(data.meetingHeader.duration, notFound))
-        },
-        {
-          title: labels.linkReference,
-          value: clampField(valueOrNotFound(data.meetingHeader.linkReference, notFound))
-        }
-      ]
-    },
-    textBlock(labels.meetingPurpose, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
-    textBlock(`${labels.purposeOneSentence} ${clampField(valueOrNotProvided(data.meetingPurpose, notProvided))}`),
-    textBlock(labels.keyPoints, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
-    textBlock(labels.shortListEachPoint, { isSubtle: true, spacing: 'Small' }),
-    textBlock(bulletsOrFallback(keyPointLines, notProvided)),
+    textBlock(`**${labels.meetingTitle}** ${clampField(valueOrNotFound(data.meetingHeader.meetingTitle, notFound))}`),
+    textBlock(`**${labels.companiesParties}** ${clampField(valueOrNotFound(data.meetingHeader.companiesParties, notFound))}`),
+    textBlock(`**${labels.date}** ${clampField(valueOrNotFound(data.meetingHeader.date, notFound))}`),
+    textBlock(`**${labels.duration}** ${clampField(valueOrNotFound(data.meetingHeader.duration, notFound))}`),
+    textBlock(`**${labels.linkReference}** ${clampField(valueOrNotFound(data.meetingHeader.linkReference, notFound))}`),
     textBlock(labels.actionItems, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
     textBlock(labels.forEachAction, { isSubtle: true, spacing: 'Small' }),
-    textBlock(bulletsOrFallback(actionLines, notProvided)),
+    ...actionItems.flatMap((item) => [
+      textBlock(`**${labels.actionVerbObject}** ${clampField(valueOrNotProvided(item.action, notProvided))}`),
+      textBlock(`**${labels.owner}** ${clampField(valueOrNotProvided(item.owner, notProvided))}`),
+      textBlock(`**${labels.dueDate}** ${clampField(valueOrNotProvided(item.dueDate, notProvided))}`),
+      textBlock(`**${labels.notesContext}** ${clampField(valueOrNotProvided(item.notes, notProvided))}`)
+    ]),
+    textBlock(labels.meetingPurpose, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
+    textBlock(`**${labels.purposeOneSentence}** ${clampField(valueOrNotProvided(data.meetingPurpose, notProvided))}`),
+    textBlock(labels.keyPoints, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
+    textBlock(labels.shortListEachPoint, { isSubtle: true, spacing: 'Small' }),
+    ...keyPoints.flatMap((point) => [
+      textBlock(`**${labels.pointTitle}** ${clampField(valueOrNotProvided(point.title, notProvided))}`),
+      textBlock(`**${labels.pointExplanation}** ${clampField(valueOrNotProvided(point.explanation, notProvided))}`)
+    ]),
     textBlock(labels.topicsDetailed, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
     ...topics.flatMap((topic) => {
       const observationLines = ensureMinCount(
@@ -227,41 +189,22 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
         () => notProvided
       ).slice(0, SUMMARY_LIMITS.observationsPerTopic);
       return [
-        textBlock(`${labels.topic} ${clampField(valueOrNotProvided(topic.topic, notProvided))}`, { weight: 'Bolder' }),
-        textBlock(`${labels.issueDescription} ${clampField(valueOrNotProvided(topic.issueDescription, notProvided))}`),
-        textBlock(
-          `${labels.keyObservations}\n${bulletsOrFallback(observationLines.map(clampField), notProvided)}`
-        ),
-        textBlock(`${labels.rootCause} ${clampField(valueOrNotProvided(topic.rootCause, notProvided))}`),
-        textBlock(`${labels.impact} ${clampField(valueOrNotProvided(topic.impact, notProvided))}`)
+        textBlock(`**${labels.topic}** ${clampField(valueOrNotProvided(topic.topic, notProvided))}`),
+        textBlock(`**${labels.issueDescription}** ${clampField(valueOrNotProvided(topic.issueDescription, notProvided))}`),
+        textBlock(`**${labels.keyObservations}**\n${bulletsOrFallback(observationLines.map(clampField), notProvided)}`),
+        textBlock(`**${labels.rootCause}** ${clampField(valueOrNotProvided(topic.rootCause, notProvided))}`),
+        textBlock(`**${labels.impact}** ${clampField(valueOrNotProvided(topic.impact, notProvided))}`)
       ];
     }),
     textBlock(labels.pathForward, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
-    {
-      type: 'FactSet',
-      facts: [
-        {
-          title: labels.definitionOfSuccess,
-          value: clampField(valueOrNotProvided(data.pathForward.definitionOfSuccess, notProvided))
-        },
-        {
-          title: labels.agreedNextAttempt,
-          value: clampField(valueOrNotProvided(data.pathForward.agreedNextAttempt, notProvided))
-        },
-        {
-          title: labels.decisionPoint,
-          value: clampField(valueOrNotProvided(data.pathForward.decisionPoint, notProvided))
-        },
-        {
-          title: labels.checkpointDate,
-          value: clampField(valueOrNotProvided(data.pathForward.checkpointDate, notProvided))
-        }
-      ]
-    },
+    textBlock(`**${labels.definitionOfSuccess}** ${clampField(valueOrNotProvided(data.pathForward.definitionOfSuccess, notProvided))}`),
+    textBlock(`**${labels.agreedNextAttempt}** ${clampField(valueOrNotProvided(data.pathForward.agreedNextAttempt, notProvided))}`),
+    textBlock(`**${labels.decisionPoint}** ${clampField(valueOrNotProvided(data.pathForward.decisionPoint, notProvided))}`),
+    textBlock(`**${labels.checkpointDate}** ${clampField(valueOrNotProvided(data.pathForward.checkpointDate, notProvided))}`),
     textBlock(labels.nextSteps, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
-    textBlock(partyALabel, { weight: 'Bolder', spacing: 'Small' }),
+    textBlock(`**${labels.partyA}** ${partyAName}`, { spacing: 'Small' }),
     textBlock(stepsOrFallback(data.nextSteps.partyA.steps, notProvided, labels.step), { spacing: 'None' }),
-    textBlock(partyBLabel, { weight: 'Bolder', spacing: 'Medium' }),
+    textBlock(`**${labels.partyB}** ${partyBName}`, { spacing: 'Medium' }),
     textBlock(stepsOrFallback(data.nextSteps.partyB.steps, notProvided, labels.step), { spacing: 'None' })
   ];
 
@@ -270,7 +213,7 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
     content: {
       $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
       type: 'AdaptiveCard',
-      version: '1.5',
+      version: '1.4',
       msteams: { width: 'Full' },
       body
     }

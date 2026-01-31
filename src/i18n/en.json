@@ -159,7 +159,7 @@
     "partyA": "Party A:",
     "partyB": "Party B:",
     "step": "Step",
-    "notProvided": "Not provided",
-    "notFound": "Not found"
+    "notProvided": "None",
+    "notFound": "None"
   }
 }

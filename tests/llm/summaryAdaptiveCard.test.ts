@@ -44,17 +44,11 @@ describe('buildSummaryAdaptiveCard', () => {
     expect(card.contentType).toBe('application/vnd.microsoft.card.adaptive');
     expect(card.content.type).toBe('AdaptiveCard');
     expect(card.content.msteams?.width).toBe('Full');
+    expect(card.content.version).toBe('1.4');
     const first = card.content.body[0];
-    expect(first.type).toBe('Container');
-    if (first.type === 'Container') {
-      expect('items' in first).toBe(true);
-      if ('items' in first && Array.isArray(first.items)) {
-        const header = first.items[0];
-        expect(header.type).toBe('TextBlock');
-        if (header.type === 'TextBlock') {
-          expect(header.text).toContain('Weekly Sync');
-        }
-      }
+    expect(first.type).toBe('TextBlock');
+    if (first.type === 'TextBlock') {
+      expect(first.text).toContain('Meeting Summary');
     }
   });
 });

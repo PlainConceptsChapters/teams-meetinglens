@@ -40,7 +40,6 @@ Provide reusable guidance for implementing modular, testable services and helper
 ## Quality bar / validation checklist
 - Clear module boundaries and interfaces
 - Every helper has corresponding unit tests defined
-- Backlog items updated with accurate status
 
 ## Related documentation
 - `../../README.md`
