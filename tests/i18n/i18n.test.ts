@@ -49,6 +49,8 @@ const requiredKeys = [
   'agenda.organizer',
   'agenda.untitled',
   'agenda.unknownTime',
+  'agenda.loadingText',
+  'agenda.loadingMore',
   'selection.needAgenda',
   'selection.needSelection',
   'selection.expired',

@@ -23,7 +23,10 @@ templateData must be an object with keys:
 - topicsDetailed [ { topic, issueDescription, observations, rootCause, impact } ]
 - pathForward { definitionOfSuccess, agreedNextAttempt, decisionPoint, checkpointDate }
 - nextSteps { partyA { name, steps }, partyB { name, steps } }
-Keep the summary concise. Use at most 5 action items, 5 key points, 4 topics, 3 observations per topic, and 4 steps per party.
+Follow the meeting summary template strictly. Each list section must contain 2 to 5 items (inclusive).
+Keep each field short (max 1 sentence, under 140 characters). No bullet lists inside fields.
+Use at most 5 action items, 5 key points, 5 topics, 3 observations per topic, and 5 steps per party.
+Meeting purpose must be one clear sentence.
 Never include personal data beyond what appears in the transcript.
 If information is missing, use empty arrays or empty strings.
 Respond in ${languageName}.`;
@@ -56,7 +59,10 @@ templateData must be an object with keys:
 - topicsDetailed [ { topic, issueDescription, observations, rootCause, impact } ]
 - pathForward { definitionOfSuccess, agreedNextAttempt, decisionPoint, checkpointDate }
 - nextSteps { partyA { name, steps }, partyB { name, steps } }
-Keep the summary concise. Use at most 5 action items, 5 key points, 4 topics, 3 observations per topic, and 4 steps per party.
+Follow the meeting summary template strictly. Each list section must contain 2 to 5 items (inclusive).
+Keep each field short (max 1 sentence, under 140 characters). No bullet lists inside fields.
+Use at most 5 action items, 5 key points, 5 topics, 3 observations per topic, and 5 steps per party.
+Meeting purpose must be one clear sentence.
 Never include personal data beyond what appears in the partial summaries.
 If information is missing, use empty arrays or empty strings.
 Respond in ${languageName}.`;

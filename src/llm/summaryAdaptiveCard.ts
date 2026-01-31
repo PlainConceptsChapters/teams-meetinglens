@@ -6,6 +6,8 @@ export type SummaryCardLanguage = 'en' | 'es' | 'ro' | string;
 
 const normalizeText = (value?: string) => value?.trim() ?? '';
 
+const MAX_FIELD_CHARS = 140;
+
 const valueOrNotProvided = (value: string | undefined, notProvided: string): string => {
   const trimmed = value?.trim();
   return trimmed ? trimmed : notProvided;
@@ -20,6 +22,15 @@ const truncateLine = (line: string, maxLength: number) => {
     return line;
   }
   return `${line.slice(0, maxLength - 3).trimEnd()}...`;
+};
+
+const firstSentence = (text: string): string => {
+  const match = text.match(/^[^.!?]+[.!?]?/);
+  return match ? match[0].trim() : text.trim();
+};
+
+const clampField = (value: string): string => {
+  return truncateLine(firstSentence(value), MAX_FIELD_CHARS);
 };
 
 const bulletsOrFallback = (lines: string[], notProvided: string) => {
@@ -131,12 +142,6 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
     () => ({ title: '', explanation: '' })
   ).slice(0, SUMMARY_LIMITS.keyPoints);
 
-  const decisions = ensureMinCount(
-    normalizeList(result.decisions),
-    2,
-    () => notProvided
-  ).slice(0, SUMMARY_LIMITS.keyPoints);
-
   const topics = ensureMinCount(
     data.topicsDetailed.length
       ? data.topicsDetailed
@@ -149,23 +154,21 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
   const partyBLabel = normalizeText(data.nextSteps.partyB.name) || labels.partyB;
 
   const keyPointLines = keyPoints.map((point) => {
-    const title = valueOrNotProvided(point.title, notProvided);
-    const explanation = normalizeText(point.explanation);
+    const title = clampField(valueOrNotProvided(point.title, notProvided));
+    const explanation = clampField(normalizeText(point.explanation));
     const line = explanation ? `${title} - ${explanation}` : title;
-    return truncateLine(line, 160);
+    return truncateLine(line, MAX_FIELD_CHARS);
   });
 
   const actionLines = actionItems.map((item) => {
-    const action = valueOrNotProvided(item.action, notProvided);
-    const owner = normalizeText(item.owner);
-    const due = normalizeText(item.dueDate);
-    const notes = normalizeText(item.notes);
+    const action = clampField(valueOrNotProvided(item.action, notProvided));
+    const owner = clampField(normalizeText(item.owner));
+    const due = clampField(normalizeText(item.dueDate));
+    const notes = clampField(normalizeText(item.notes));
     const meta = normalizeList([owner, due, notes]).join(', ');
     const line = meta ? `${action} (${meta})` : action;
-    return truncateLine(line, 160);
+    return truncateLine(line, MAX_FIELD_CHARS);
   });
-
-  const decisionLines = decisions.map((line) => truncateLine(line, 160));
 
   const body = [
     {
@@ -203,12 +206,10 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
       ]
     },
     textBlock(labels.meetingPurpose, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
-    textBlock(`${labels.purposeOneSentence} ${valueOrNotProvided(data.meetingPurpose, notProvided)}`),
+    textBlock(`${labels.purposeOneSentence} ${clampField(valueOrNotProvided(data.meetingPurpose, notProvided))}`),
     textBlock(labels.keyPoints, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
     textBlock(labels.shortListEachPoint, { isSubtle: true, spacing: 'Small' }),
     textBlock(bulletsOrFallback(keyPointLines, notProvided)),
-    textBlock(labels.decisions, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
-    textBlock(bulletsOrFallback(decisionLines, notProvided)),
     textBlock(labels.actionItems, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
     textBlock(labels.forEachAction, { isSubtle: true, spacing: 'Small' }),
     textBlock(bulletsOrFallback(actionLines, notProvided)),
@@ -220,11 +221,13 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
         () => notProvided
       ).slice(0, SUMMARY_LIMITS.observationsPerTopic);
       return [
-        textBlock(`${labels.topic} ${valueOrNotProvided(topic.topic, notProvided)}`, { weight: 'Bolder' }),
-        textBlock(`${labels.issueDescription} ${valueOrNotProvided(topic.issueDescription, notProvided)}`),
-        textBlock(`${labels.keyObservations}\n${bulletsOrFallback(observationLines, notProvided)}`),
-        textBlock(`${labels.rootCause} ${valueOrNotProvided(topic.rootCause, notProvided)}`),
-        textBlock(`${labels.impact} ${valueOrNotProvided(topic.impact, notProvided)}`)
+        textBlock(`${labels.topic} ${clampField(valueOrNotProvided(topic.topic, notProvided))}`, { weight: 'Bolder' }),
+        textBlock(`${labels.issueDescription} ${clampField(valueOrNotProvided(topic.issueDescription, notProvided))}`),
+        textBlock(
+          `${labels.keyObservations}\n${bulletsOrFallback(observationLines.map(clampField), notProvided)}`
+        ),
+        textBlock(`${labels.rootCause} ${clampField(valueOrNotProvided(topic.rootCause, notProvided))}`),
+        textBlock(`${labels.impact} ${clampField(valueOrNotProvided(topic.impact, notProvided))}`)
       ];
     }),
     textBlock(labels.pathForward, { weight: 'Bolder', size: 'Medium', spacing: 'Medium' }),
@@ -233,19 +236,19 @@ export const buildSummaryAdaptiveCard = (result: SummaryResult, options?: { lang
       facts: [
         {
           title: labels.definitionOfSuccess,
-          value: valueOrNotProvided(data.pathForward.definitionOfSuccess, notProvided)
+          value: clampField(valueOrNotProvided(data.pathForward.definitionOfSuccess, notProvided))
         },
         {
           title: labels.agreedNextAttempt,
-          value: valueOrNotProvided(data.pathForward.agreedNextAttempt, notProvided)
+          value: clampField(valueOrNotProvided(data.pathForward.agreedNextAttempt, notProvided))
         },
         {
           title: labels.decisionPoint,
-          value: valueOrNotProvided(data.pathForward.decisionPoint, notProvided)
+          value: clampField(valueOrNotProvided(data.pathForward.decisionPoint, notProvided))
         },
         {
           title: labels.checkpointDate,
-          value: valueOrNotProvided(data.pathForward.checkpointDate, notProvided)
+          value: clampField(valueOrNotProvided(data.pathForward.checkpointDate, notProvided))
         }
       ]
     },

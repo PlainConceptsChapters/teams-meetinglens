@@ -64,6 +64,7 @@ This document defines the Codex agents used for this repository and how they col
   - Traces span Teams -> Graph -> OpenAI
 ## Collaboration rules
 - Never edit `.env`; update `.env.example` only.
+- Meeting summaries must strictly follow the approved Meeting Summary Template (Sections 1–7 with 2–5 items per list).
 - All user-facing text must come from i18n catalogs (no magic strings in code).
 - Keep files roughly 300-500 lines max; split large files into focused modules as a standard practice.
 

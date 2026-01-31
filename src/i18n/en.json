@@ -35,7 +35,9 @@
     "noTranscript": "No transcript",
     "organizer": "Organizer: {organizer}",
     "untitled": "Untitled meeting",
-    "unknownTime": "Unknown time"
+    "unknownTime": "Unknown time",
+    "loadingText": "Checking your agenda...",
+    "loadingMore": "Still working on it..."
   },
   "selection": {
     "needAgenda": "Please run /agenda first.",

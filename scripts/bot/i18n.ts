@@ -186,6 +186,9 @@ export const createI18n = (translations: TranslationCatalog, buildLlmClient: () 
     const locale = normalizeLanguage(request.locale);
     if (locale) {
       if (autoLanguageAllowList.has(locale)) {
+        if (locale === 'es' && isLikelyEnglishText(request.text) && hasEnglishMarkers(request.text ?? '')) {
+          return 'en';
+        }
         languageStore.set(getLanguageKey(request), { code: locale, source: 'auto' });
         return locale;
       }

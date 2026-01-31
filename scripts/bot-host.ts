@@ -232,13 +232,18 @@ class TeamsBot extends TeamsActivityHandler {
 
       let loadingActivityId: string | undefined;
       let loadingTimer: NodeJS.Timeout | undefined;
+      const trimmedIncoming = incomingText.trim().toLowerCase();
       const shouldShowSummaryLoading =
-        incomingText.trim().toLowerCase().startsWith('/summary') && (graphToken || graphAccessToken);
-      if (shouldShowSummaryLoading) {
+        trimmedIncoming.startsWith('/summary') && (graphToken || graphAccessToken);
+      const shouldShowAgendaLoading =
+        trimmedIncoming.startsWith('/agenda') && (graphToken || graphAccessToken);
+      if (shouldShowSummaryLoading || shouldShowAgendaLoading) {
         const preferred = await resolvePreferredLanguage(request);
         await context.sendActivity({ type: 'typing' });
+        const loadingText = shouldShowAgendaLoading ? t('agenda.loadingText') : t('summary.loadingText');
+        const loadingMore = shouldShowAgendaLoading ? t('agenda.loadingMore') : t('summary.loadingMore');
         const loadingActivity = await context.sendActivity({
-          text: await translateOutgoing(t('summary.loadingText'), preferred)
+          text: await translateOutgoing(loadingText, preferred)
         });
         loadingActivityId = loadingActivity?.id;
         loadingTimer = setTimeout(async () => {
@@ -247,7 +252,7 @@ class TeamsBot extends TeamsActivityHandler {
               id: loadingActivityId,
               type: 'message',
               conversation: activity.conversation,
-              text: await translateOutgoing(t('summary.loadingMore'), preferred)
+              text: await translateOutgoing(loadingMore, preferred)
             });
           } catch {
             // Ignore update failures for interim progress.
