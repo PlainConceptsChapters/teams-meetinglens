@@ -67,6 +67,7 @@ describe('renderSummaryTemplate', () => {
     expect(output).toContain('1) Meeting Header');
     expect(output).toContain('Meeting title: Weekly Sync');
     expect(output).toContain('2) Action Items');
+    expect(output).not.toContain('For each action');
     expect(output).not.toContain('Short list');
   });
 });

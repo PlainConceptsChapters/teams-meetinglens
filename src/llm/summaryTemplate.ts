@@ -104,7 +104,6 @@ const renderMarkdown = (data: SummaryTemplateData, labels: ReturnType<typeof get
   lines.push('');
 
   lines.push(`**2. ${labels.actionItems}**`);
-  lines.push(`*${labels.forEachAction}*`);
 
   const actionItems = data.actionItemsDetailed.length
     ? data.actionItemsDetailed
@@ -206,7 +205,6 @@ const renderXml = (data: SummaryTemplateData, labels: ReturnType<typeof getSumma
   lines.push('</ul>');
 
   lines.push(`<h3>2. ${labels.actionItems}</h3>`);
-  lines.push(`<p><i>${labels.forEachAction}</i></p>`);
 
   const actionItems = data.actionItemsDetailed.length
     ? data.actionItemsDetailed
@@ -334,7 +332,6 @@ const renderPlain = (data: SummaryTemplateData, labels: ReturnType<typeof getSum
   lines.push('');
 
   lines.push(`2) ${labels.actionItems}`);
-  lines.push(labels.forEachAction);
   const actionItems = data.actionItemsDetailed.length
     ? data.actionItemsDetailed
     : [{ action: '', owner: '', dueDate: '', notes: '' }];
