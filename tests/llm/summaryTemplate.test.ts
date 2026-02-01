@@ -61,4 +61,11 @@ describe('renderSummaryTemplate', () => {
     const output = renderSummaryTemplate(minimal, { language: 'en' });
     expect(output).toContain('None');
   });
+
+  it('renders plain text with keys', () => {
+    const output = renderSummaryTemplate(baseResult, { language: 'en', format: 'plain' });
+    expect(output).toContain('1) Meeting Header');
+    expect(output).toContain('Meeting title: Weekly Sync');
+    expect(output).toContain('2) Action Items');
+  });
 });

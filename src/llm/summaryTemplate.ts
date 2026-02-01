@@ -3,7 +3,7 @@ import { getSummaryTemplateLabels } from '../i18n/summaryTemplateCatalog.js';
 import { SUMMARY_LIMITS } from './summaryLimits.js';
 
 export type SummaryTemplateLanguage = 'en' | 'es' | 'ro' | string;
-export type SummaryTemplateFormat = 'markdown' | 'xml';
+export type SummaryTemplateFormat = 'markdown' | 'xml' | 'plain';
 
 const valueOrNotProvided = (value: string | undefined, notProvided: string): string => {
   const trimmed = value?.trim();
@@ -322,6 +322,91 @@ const renderXml = (data: SummaryTemplateData, labels: ReturnType<typeof getSumma
   return lines.join('\n');
 };
 
+const renderPlain = (data: SummaryTemplateData, labels: ReturnType<typeof getSummaryTemplateLabels>): string => {
+  const notProvided = labels.notProvided;
+  const notFound = labels.notFound;
+  const lines: string[] = [];
+
+  lines.push(`1) ${labels.meetingHeader}`);
+  lines.push(`${labels.meetingTitle} ${valueOrNotFound(data.meetingHeader.meetingTitle, notFound)}`);
+  lines.push(`${labels.companiesParties} ${valueOrNotFound(data.meetingHeader.companiesParties, notFound)}`);
+  lines.push(`${labels.date} ${valueOrNotFound(data.meetingHeader.date, notFound)}`);
+  lines.push(`${labels.duration} ${valueOrNotFound(data.meetingHeader.duration, notFound)}`);
+  lines.push(`${labels.linkReference} ${valueOrNotFound(data.meetingHeader.linkReference, notFound)}`);
+  lines.push('');
+
+  lines.push(`2) ${labels.actionItems}`);
+  lines.push(labels.forEachAction);
+  const actionItems = data.actionItemsDetailed.length
+    ? data.actionItemsDetailed
+    : [{ action: '', owner: '', dueDate: '', notes: '' }];
+  actionItems.forEach((item, index) => {
+    lines.push(`Action Item ${index + 1}`);
+    lines.push(`${labels.actionVerbObject} ${valueOrNotProvided(item.action, notProvided)}`);
+    lines.push(`${labels.owner} ${valueOrNotProvided(item.owner, notProvided)}`);
+    lines.push(`${labels.dueDate} ${valueOrNotProvided(item.dueDate, notProvided)}`);
+    lines.push(`${labels.notesContext} ${valueOrNotProvided(item.notes, notProvided)}`);
+  });
+  lines.push('');
+
+  lines.push(`3) ${labels.meetingPurpose}`);
+  lines.push(`${labels.purposeOneSentence} ${valueOrNotProvided(data.meetingPurpose, notProvided)}`);
+  lines.push('');
+
+  lines.push(`4) ${labels.keyPoints}`);
+  lines.push(labels.shortListEachPoint);
+  const keyPoints = data.keyPointsDetailed.length ? data.keyPointsDetailed : [{ title: '', explanation: '' }];
+  keyPoints.forEach((point, index) => {
+    lines.push(`Key Point ${index + 1}`);
+    lines.push(`${labels.pointTitle} ${valueOrNotProvided(point.title, notProvided)}`);
+    lines.push(`${labels.pointExplanation} ${valueOrNotProvided(point.explanation, notProvided)}`);
+  });
+  lines.push('');
+
+  lines.push(`5) ${labels.topicsDetailed}`);
+  const topics = data.topicsDetailed.length
+    ? data.topicsDetailed
+    : [{ topic: '', issueDescription: '', observations: [], rootCause: '', impact: '' }];
+  topics.forEach((topic, index) => {
+    lines.push(`Topic ${index + 1}`);
+    lines.push(`${labels.topic} ${valueOrNotProvided(topic.topic, notProvided)}`);
+    lines.push(`${labels.issueDescription} ${valueOrNotProvided(topic.issueDescription, notProvided)}`);
+    lines.push(labels.keyObservations);
+    const observations = topic.observations.length ? topic.observations : [notProvided];
+    observations.forEach((obs, obsIndex) => {
+      lines.push(`Observation ${obsIndex + 1}: ${valueOrNotProvided(obs, notProvided)}`);
+    });
+    lines.push(`${labels.rootCause} ${valueOrNotProvided(topic.rootCause, notProvided)}`);
+    lines.push(`${labels.impact} ${valueOrNotProvided(topic.impact, notProvided)}`);
+  });
+  lines.push('');
+
+  lines.push(`6) ${labels.pathForward}`);
+  lines.push(`${labels.definitionOfSuccess} ${valueOrNotProvided(data.pathForward.definitionOfSuccess, notProvided)}`);
+  lines.push(`${labels.agreedNextAttempt} ${valueOrNotProvided(data.pathForward.agreedNextAttempt, notProvided)}`);
+  lines.push(`${labels.decisionPoint} ${valueOrNotProvided(data.pathForward.decisionPoint, notProvided)}`);
+  lines.push(`${labels.checkpointDate} ${valueOrNotProvided(data.pathForward.checkpointDate, notProvided)}`);
+  lines.push('');
+
+  lines.push(`7) ${labels.nextSteps}`);
+  const partyALabel = data.nextSteps.partyA.name ? `${labels.partyA} ${data.nextSteps.partyA.name}` : labels.partyA;
+  lines.push(partyALabel);
+  const partyASteps = normalizeSteps(data.nextSteps.partyA.steps, 2, notProvided);
+  partyASteps.forEach((step, index) => {
+    lines.push(`${labels.step} ${index + 1}: ${valueOrNotProvided(step, notProvided)}`);
+  });
+  lines.push('');
+
+  const partyBLabel = data.nextSteps.partyB.name ? `${labels.partyB} ${data.nextSteps.partyB.name}` : labels.partyB;
+  lines.push(partyBLabel);
+  const partyBSteps = normalizeSteps(data.nextSteps.partyB.steps, 2, notProvided);
+  partyBSteps.forEach((step, index) => {
+    lines.push(`${labels.step} ${index + 1}: ${valueOrNotProvided(step, notProvided)}`);
+  });
+
+  return lines.join('\n');
+};
+
 export const renderSummaryTemplate = (
   result: SummaryResult,
   options?: { language?: SummaryTemplateLanguage; format?: SummaryTemplateFormat }
@@ -331,6 +416,9 @@ export const renderSummaryTemplate = (
   const format = options?.format ?? 'xml';
   if (format === 'markdown') {
     return renderMarkdown(data, labels);
+  }
+  if (format === 'plain') {
+    return renderPlain(data, labels);
   }
   return renderXml(data, labels);
 };

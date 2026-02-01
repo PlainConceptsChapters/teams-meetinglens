@@ -105,7 +105,7 @@ export const createSummaryHandlers = (deps: {
         summaryOptions
       );
       await updateProgress(request, 'progress.summary', 'progress.steps.rendering', 92);
-      const summaryText = renderSummaryTemplate(result, { language: preferred, format: 'markdown' });
+      const summaryText = renderSummaryTemplate(result, { language: preferred, format: 'plain' });
       const text = `${buildSelectionPrefix(request)}${summaryText}\n${t('summary.followupHint')}`;
       return {
         text

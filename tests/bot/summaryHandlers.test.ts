@@ -101,7 +101,8 @@ describe('bot summary handlers', () => {
     });
 
     const response = await handlers.handleSummaryCommand(request, 'en');
-    expect(response.text).toContain('**1. Meeting Header**');
+    expect(response.text).toContain('1) Meeting Header');
+    expect(response.text).toContain('Meeting title: Title');
     expect(response.text).toContain('summary.followupHint');
     expect(updateMock).toHaveBeenCalled();
   });
