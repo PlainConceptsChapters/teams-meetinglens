@@ -123,7 +123,6 @@ const renderMarkdown = (data: SummaryTemplateData, labels: ReturnType<typeof get
   lines.push('');
 
   lines.push(`**4. ${labels.keyPoints}**`);
-  lines.push(`*${labels.shortListEachPoint}*`);
 
   const keyPoints = data.keyPointsDetailed.length ? data.keyPointsDetailed : [{ title: '', explanation: '' }];
   for (const point of keyPoints) {
@@ -233,7 +232,6 @@ const renderXml = (data: SummaryTemplateData, labels: ReturnType<typeof getSumma
   );
 
   lines.push(`<h3>4. ${labels.keyPoints}</h3>`);
-  lines.push(`<p><i>${labels.shortListEachPoint}</i></p>`);
   const keyPoints = data.keyPointsDetailed.length ? data.keyPointsDetailed : [{ title: '', explanation: '' }];
   lines.push('<ul>');
   for (const point of keyPoints) {
@@ -354,7 +352,6 @@ const renderPlain = (data: SummaryTemplateData, labels: ReturnType<typeof getSum
   lines.push('');
 
   lines.push(`4) ${labels.keyPoints}`);
-  lines.push(labels.shortListEachPoint);
   const keyPoints = data.keyPointsDetailed.length ? data.keyPointsDetailed : [{ title: '', explanation: '' }];
   keyPoints.forEach((point, index) => {
     lines.push(`Key Point ${index + 1}`);

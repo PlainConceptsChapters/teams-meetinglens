@@ -108,7 +108,7 @@ export const createSummaryHandlers = (deps: {
       await updateProgress(request, 'progress.summary', 'progress.steps.rendering', 92);
       const labels = getSummaryTemplateLabels(preferred);
       logEventWithOptions(request, 'summary_labels', { labels }, { maxLength: 2000 });
-      const summaryText = renderSummaryTemplate(result, { language: preferred, format: 'plain' });
+      const summaryText = renderSummaryTemplate(result, { language: preferred, format: 'markdown' });
       logEventWithOptions(request, 'summary_rendered', {
         summaryLength: summaryText.length,
         summaryPreview: summaryText
