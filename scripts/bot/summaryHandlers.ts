@@ -4,6 +4,7 @@ import type { AgendaItem } from '../../src/agenda/types.js';
 import { QaService } from '../../src/llm/qnaService.js';
 import { SummarizationService } from '../../src/llm/summarizationService.js';
 import { renderSummaryTemplate } from '../../src/llm/summaryTemplate.js';
+import { getSummaryTemplateLabels } from '../../src/i18n/summaryTemplateCatalog.js';
 import type { ChannelRequest, ChannelResponse } from '../../src/teams/types.js';
 import type { LanguageCode } from '../../src/teams/language.js';
 import type { LlmClient } from '../../src/llm/types.js';
@@ -13,7 +14,7 @@ import { answerWithLogging, summarizeWithLogging } from './llm.js';
 import { findMeetingFromNlu, findMostRecentMeetingWithTranscript, getTranscriptFromMeetingContext } from './meeting.js';
 import type { NluResult } from '../../src/teams/nluService.js';
 import { formatAgendaItem } from './agenda.js';
-import { logEvent } from './logging.js';
+import { logEvent, logEventWithOptions } from './logging.js';
 import { summaryOptions } from './config.js';
 
 export const createSummaryHandlers = (deps: {
@@ -105,7 +106,13 @@ export const createSummaryHandlers = (deps: {
         summaryOptions
       );
       await updateProgress(request, 'progress.summary', 'progress.steps.rendering', 92);
+      const labels = getSummaryTemplateLabels(preferred);
+      logEventWithOptions(request, 'summary_labels', { labels }, { maxLength: 2000 });
       const summaryText = renderSummaryTemplate(result, { language: preferred, format: 'plain' });
+      logEventWithOptions(request, 'summary_rendered', {
+        summaryLength: summaryText.length,
+        summaryPreview: summaryText
+      }, { maxLength: 2000 });
       const text = `${buildSelectionPrefix(request)}${summaryText}\n${t('summary.followupHint')}`;
       return {
         text

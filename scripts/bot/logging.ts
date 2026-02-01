@@ -38,29 +38,34 @@ const truncateText = (value: string, maxLength = 200): string => {
   return `${value.slice(0, maxLength)}...`;
 };
 
-const sanitizePayload = (value: unknown): unknown => {
+const sanitizePayload = (value: unknown, maxLength = 200): unknown => {
   if (value === null || value === undefined) {
     return value;
   }
   if (typeof value === 'string') {
-    return truncateText(redactText(value));
+    return truncateText(redactText(value), maxLength);
   }
   if (typeof value === 'number' || typeof value === 'boolean') {
     return value;
   }
   if (Array.isArray(value)) {
-    return value.map((item) => sanitizePayload(item));
+    return value.map((item) => sanitizePayload(item, maxLength));
   }
   if (typeof value === 'object') {
     return Object.entries(value).reduce<Record<string, unknown>>((acc, [key, val]) => {
-      acc[key] = sanitizePayload(val);
+      acc[key] = sanitizePayload(val, maxLength);
       return acc;
     }, {});
   }
   return String(value);
 };
 
-export const logEvent = (request: ChannelRequest, event: string, payload: Record<string, unknown>) => {
+export const logEventWithOptions = (
+  request: ChannelRequest,
+  event: string,
+  payload: Record<string, unknown>,
+  options?: { maxLength?: number }
+) => {
   if (!isLogEnabled(request)) {
     return;
   }
@@ -78,6 +83,10 @@ export const logEvent = (request: ChannelRequest, event: string, payload: Record
     meetingId: hashValue(request.meetingId),
     correlationId: request.correlationId ?? undefined
   };
-  const sanitized = sanitizePayload(payload);
+  const sanitized = sanitizePayload(payload, options?.maxLength ?? 200);
   console.log(JSON.stringify({ ...base, ...(sanitized as Record<string, unknown>) }));
+};
+
+export const logEvent = (request: ChannelRequest, event: string, payload: Record<string, unknown>) => {
+  logEventWithOptions(request, event, payload);
 };

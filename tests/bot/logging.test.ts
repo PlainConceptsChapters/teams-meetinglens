@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { isLogEnabled, setLogEnabled, logEvent } from '../../scripts/bot/logging.js';
+import { isLogEnabled, setLogEnabled, logEvent, logEventWithOptions } from '../../scripts/bot/logging.js';
 import type { ChannelRequest } from '../../src/teams/types.js';
 
 const baseRequest: ChannelRequest = {
@@ -49,5 +49,14 @@ describe('bot logging', () => {
     expect(payload.token).toBe('Bearer [REDACTED_TOKEN]');
     expect(payload.jwt).toBe('[REDACTED_TOKEN]');
     expect(payload.userId).toHaveLength(16);
+  });
+
+  it('supports extended payload logging', () => {
+    setLogEnabled(baseRequest, true);
+    logEventWithOptions(baseRequest, 'summary_rendered', { summaryPreview: 'x'.repeat(500) }, { maxLength: 300 });
+    expect(logMock).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(logMock.mock.calls[0][0]) as Record<string, string>;
+    expect(payload.event).toBe('summary_rendered');
+    expect(payload.summaryPreview.length).toBeLessThanOrEqual(303);
   });
 });
